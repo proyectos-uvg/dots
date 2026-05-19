@@ -6,7 +6,8 @@
 #include <ncurses.h>
 #include <clocale>
 #include <cstdio>
-
+#include <pthread.h>
+#include "input.h"
 #include "game_state.h"
 #include "sync.h"
 #include "board.h"
@@ -51,7 +52,8 @@ sem_t input_ready;
  * @return 0 si la ejecución finaliza correctamente.
  * @return 1 si la terminal no soporta colores.
  */
-int main(void) {
+int main(void)
+{
 
     /* Habilitar soporte UTF-8 */
     setlocale(LC_ALL, "");
@@ -63,7 +65,8 @@ int main(void) {
     keypad(stdscr, TRUE);
     curs_set(0);
 
-    if (!has_colors()) {
+    if (!has_colors())
+    {
         endwin();
 
         fprintf(stderr,
@@ -80,7 +83,14 @@ int main(void) {
 
     render_board();
 
-    getch();
+    pthread_t input_tid;
+
+    pthread_create(&input_tid,
+                   NULL,
+                   input_thread,
+                   NULL);
+
+    pthread_join(input_tid, NULL);
 
     cleanup();
 

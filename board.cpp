@@ -75,7 +75,8 @@ static const int CELL_W = 4;
  *
  * @note El programa finaliza si ocurre un error.
  */
-void init_sync(void) {
+void init_sync(void)
+{
     int err = 0;
 
     err |= pthread_mutex_init(&board_mutex, NULL);
@@ -83,7 +84,8 @@ void init_sync(void) {
     err |= pthread_cond_init(&board_updated, NULL);
     err |= sem_init(&input_ready, 0, 0);
 
-    if (err != 0) {
+    if (err != 0)
+    {
         endwin();
 
         fprintf(stderr,
@@ -96,7 +98,8 @@ void init_sync(void) {
 /**
  * @brief Libera todas las primitivas de sincronización.
  */
-void destroy_sync(void) {
+void destroy_sync(void)
+{
     pthread_mutex_destroy(&board_mutex);
     pthread_mutex_destroy(&score_mutex);
     pthread_cond_destroy(&board_updated);
@@ -109,7 +112,8 @@ void destroy_sync(void) {
  * @pre initscr() ya fue ejecutado.
  * @pre has_colors() debe retornar TRUE.
  */
-void init_display(void) {
+void init_display(void)
+{
     start_color();
 
     init_pair(PAIR_RED, COLOR_RED, COLOR_BLACK);
@@ -128,26 +132,28 @@ void init_display(void) {
  *
  * @return ID del par de color correspondiente.
  */
-static int color_pair_for(int color_idx) {
-    switch (color_idx) {
+static int color_pair_for(int color_idx)
+{
+    switch (color_idx)
+    {
 
-        case COLOR_IDX_RED:
-            return PAIR_RED;
+    case COLOR_IDX_RED:
+        return PAIR_RED;
 
-        case COLOR_IDX_BLUE:
-            return PAIR_BLUE;
+    case COLOR_IDX_BLUE:
+        return PAIR_BLUE;
 
-        case COLOR_IDX_GREEN:
-            return PAIR_GREEN;
+    case COLOR_IDX_GREEN:
+        return PAIR_GREEN;
 
-        case COLOR_IDX_YELLOW:
-            return PAIR_YELLOW;
+    case COLOR_IDX_YELLOW:
+        return PAIR_YELLOW;
 
-        case COLOR_IDX_MAGENTA:
-            return PAIR_MAGENTA;
+    case COLOR_IDX_MAGENTA:
+        return PAIR_MAGENTA;
 
-        default:
-            return PAIR_TITLE;
+    default:
+        return PAIR_TITLE;
     }
 }
 
@@ -165,7 +171,8 @@ static int color_pair_for(int color_idx) {
  * @note El acceso concurrente se protege mediante board_mutex.
  * @post Se notifica a los hilos esperando cambios del tablero.
  */
-void init_board(void) {
+void init_board(void)
+{
     srand((unsigned int)time(NULL));
 
     pthread_mutex_lock(&board_mutex);
@@ -175,8 +182,10 @@ void init_board(void) {
     g_state.game_mode = MODE_SLOW;
     g_state.game_status = STATUS_RUNNING;
 
-    for (int r = 0; r < BOARD_SIZE; r++) {
-        for (int c = 0; c < BOARD_SIZE; c++) {
+    for (int r = 0; r < BOARD_SIZE; r++)
+    {
+        for (int c = 0; c < BOARD_SIZE; c++)
+        {
             g_state.board[r][c] = rand() % NUM_COLORS;
         }
     }
@@ -198,7 +207,8 @@ void init_board(void) {
  *
  * @note El acceso al tablero se protege mediante board_mutex.
  */
-void render_board(void) {
+void render_board(void)
+{
     clear();
 
     attron(A_BOLD | COLOR_PAIR(PAIR_TITLE));
@@ -222,7 +232,8 @@ void render_board(void) {
              "Modo : %s",
              g_state.game_mode == MODE_SLOW ? "Lento " : "Rapido");
 
-    for (int c = 0; c < BOARD_SIZE; c++) {
+    for (int c = 0; c < BOARD_SIZE; c++)
+    {
         mvprintw(BOARD_ROW - 1,
                  BOARD_COL + c * CELL_W,
                  "%c",
@@ -231,14 +242,16 @@ void render_board(void) {
 
     pthread_mutex_lock(&board_mutex);
 
-    for (int r = 0; r < BOARD_SIZE; r++) {
+    for (int r = 0; r < BOARD_SIZE; r++)
+    {
 
         mvprintw(BOARD_ROW + r,
                  BOARD_COL - 3,
                  "%d |",
                  r + 1);
 
-        for (int c = 0; c < BOARD_SIZE; c++) {
+        for (int c = 0; c < BOARD_SIZE; c++)
+        {
 
             int pair = color_pair_for(g_state.board[r][c]);
 
@@ -252,44 +265,49 @@ void render_board(void) {
 
     int status_row = BOARD_ROW + BOARD_SIZE + 2;
 
-    switch (g_state.game_status) {
+    switch (g_state.game_status)
+    {
 
-        case STATUS_RUNNING:
+    case STATUS_RUNNING:
 
-            mvprintw(status_row,
-                     2,
-                     "Estado: Jugando...              ");
+        mvprintw(status_row,
+                 2,
+                 "Estado: Jugando...              ");
 
-            break;
+        break;
 
-        case STATUS_WON:
+    case STATUS_WON:
 
-            attron(COLOR_PAIR(PAIR_GREEN) | A_BOLD);
+        attron(COLOR_PAIR(PAIR_GREEN) | A_BOLD);
 
-            mvprintw(status_row,
-                     2,
-                     "Estado: *** GANASTE! ***        ");
+        mvprintw(status_row,
+                 2,
+                 "Estado: *** GANASTE! ***        ");
 
-            attroff(COLOR_PAIR(PAIR_GREEN) | A_BOLD);
+        attroff(COLOR_PAIR(PAIR_GREEN) | A_BOLD);
 
-            break;
+        break;
 
-        case STATUS_LOST:
+    case STATUS_LOST:
 
-            attron(COLOR_PAIR(PAIR_RED) | A_BOLD);
+        attron(COLOR_PAIR(PAIR_RED) | A_BOLD);
 
-            mvprintw(status_row,
-                     2,
-                     "Estado: *** PERDISTE! ***       ");
+        mvprintw(status_row,
+                 2,
+                 "Estado: *** PERDISTE! ***       ");
 
-            attroff(COLOR_PAIR(PAIR_RED) | A_BOLD);
+        attroff(COLOR_PAIR(PAIR_RED) | A_BOLD);
 
-            break;
+        break;
     }
 
     mvprintw(status_row + 2,
              2,
-             "Presiona cualquier tecla para salir...");
+             "Q = salir");
+
+    mvprintw(status_row + 4,
+             2,
+             "Controles: Flechas mover | ESPACIO seleccionar | ENTER confirmar");
 
     refresh();
 }
@@ -299,7 +317,8 @@ void render_board(void) {
  *
  * Destruye primitivas de sincronización y finaliza ncurses.
  */
-void cleanup(void) {
+void cleanup(void)
+{
     destroy_sync();
     endwin();
 }
