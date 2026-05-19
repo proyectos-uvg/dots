@@ -1,0 +1,10 @@
+# Compilado
+dots
+*.o
+
+# Editor
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
