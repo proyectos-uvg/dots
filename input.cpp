@@ -122,6 +122,8 @@ void* input_thread(void* arg) {
 
     (void)arg;
 
+    bool needs_broadcast = false;
+
     while (g_state.game_status == STATUS_RUNNING) {
 
         int ch = getch();
@@ -177,22 +179,27 @@ void* input_thread(void* arg) {
 
                 } else {
 
-                    SelectedPoint last = selection.back();
+                    SelectedPoint last  = selection.back();
+                    SelectedPoint first = selection.front();
 
-                    if (!is_adjacent(last.row,
-                                     last.col,
-                                     cursor_row,
-                                     cursor_col)) {
+                    if (!is_adjacent(last.row, last.col, cursor_row, cursor_col))
+                        break;
 
+                    if (color != current_color)
+                        break;
+
+                    bool is_first = (cursor_row == first.row &&cursor_col == first.col);
+
+                    /* Solo se permite volver al primer punto para cerrar
+                     * ciclo. Cualquier otro punto
+                     * ya visitado se ignora para evitar ciclos falsos. */
+                    if (already_selected(selection, cursor_row, cursor_col)) {
+                        if (is_first && (int)selection.size() >= 3)
+                            selection.push_back({cursor_row, cursor_col});
                         break;
                     }
 
-                    if (color != current_color) {
-                        break;
-                    }
-
-                    selection.push_back(
-                        {cursor_row, cursor_col});
+                    selection.push_back({cursor_row, cursor_col});
                 }
 
                 break;
@@ -201,10 +208,8 @@ void* input_thread(void* arg) {
             case '\n':
 
                 if (selection.size() >= 2) {
-
                     remove_selection();
-
-                    pthread_cond_broadcast(&board_updated);
+                    needs_broadcast = true;
                 }
 
                 break;
@@ -212,15 +217,25 @@ void* input_thread(void* arg) {
             case 'q':
 
                 g_state.game_status = STATUS_LOST;
-                return NULL;
+                break;
         }
+
+        pthread_mutex_lock(&render_mutex);
 
         render_board();
 
-        /*
-         * Dibujar cursor
-         */
+        /* Resaltar puntos en la selección actual.
+         * color+1 mapea COLOR_IDX_* al PAIR_* correspondiente. */
+        for (const auto& sp : selection) {
+            int color = g_state.board[sp.row][sp.col];
+            if (color >= 0 && color < NUM_COLORS) {
+                attron(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
+                mvaddch(6 + sp.row, 6 + sp.col * 4, ACS_BLOCK);
+                attroff(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
+            }
+        }
 
+        /* Dibujar cursor encima de todo */
         int draw_row = 6 + cursor_row;
         int draw_col = 6 + cursor_col * 4;
 
@@ -229,7 +244,24 @@ void* input_thread(void* arg) {
         attroff(A_REVERSE | A_BOLD);
 
         refresh();
+
+        pthread_mutex_unlock(&render_mutex);
+
+        /* Broadcast después de render para que game_loop_thread
+         * no intente dibujar mientras input_thread aún está en pantalla. */
+        if (needs_broadcast) {
+            pthread_cond_broadcast(&board_updated);
+            needs_broadcast = false;
+        }
     }
+
+    /* Mostrar estado final (GANASTE / PERDISTE) y esperar confirmación. */
+    pthread_mutex_lock(&render_mutex);
+    render_board();
+    mvprintw(20, 2, "Presiona cualquier tecla para salir...");
+    refresh();
+    pthread_mutex_unlock(&render_mutex);
+    getch();
 
     return NULL;
 }

@@ -142,7 +142,7 @@ void process_move(const std::vector<SelectedPoint>& path,
         }
     }
  
-    int chain_len = (int)path.size();
+    int chain_len = path.empty() ? total_removed : (int)path.size();
     int extras    = (is_cycle) ? (total_removed - chain_len) : 0;
     if (extras < 0) extras = 0;
  
@@ -232,8 +232,9 @@ void* game_loop_thread(void* arg)
          */
         std::vector<SelectedPoint> empty_path;
         process_move(empty_path, -1, false);
- 
+        pthread_mutex_lock(&render_mutex);
         render_board();
+        pthread_mutex_unlock(&render_mutex);
     }
  
     pthread_mutex_destroy(&wait_mutex);

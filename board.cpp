@@ -81,6 +81,7 @@ void init_sync(void)
 
     err |= pthread_mutex_init(&board_mutex, NULL);
     err |= pthread_mutex_init(&score_mutex, NULL);
+    err |= pthread_mutex_init(&render_mutex, NULL);
     err |= pthread_cond_init(&board_updated, NULL);
     err |= sem_init(&input_ready, 0, 0);
 
@@ -102,6 +103,7 @@ void destroy_sync(void)
 {
     pthread_mutex_destroy(&board_mutex);
     pthread_mutex_destroy(&score_mutex);
+    pthread_mutex_destroy(&render_mutex);
     pthread_cond_destroy(&board_updated);
     sem_destroy(&input_ready);
 }
@@ -253,11 +255,14 @@ void render_board(void)
         for (int c = 0; c < BOARD_SIZE; c++)
         {
 
-            int pair = color_pair_for(g_state.board[r][c]);
-
-            attron(COLOR_PAIR(pair) | A_BOLD);
-            mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ACS_BLOCK);
-            attroff(COLOR_PAIR(pair) | A_BOLD);
+            if (g_state.board[r][c] == -1) {
+                mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ' ');
+            } else {
+                int pair = color_pair_for(g_state.board[r][c]);
+                attron(COLOR_PAIR(pair) | A_BOLD);
+                mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ACS_BLOCK);
+                attroff(COLOR_PAIR(pair) | A_BOLD);
+            }
         }
     }
 

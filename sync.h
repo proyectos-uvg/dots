@@ -54,6 +54,18 @@ extern pthread_cond_t board_updated;
 extern sem_t input_ready;
 
 /**
+ * @brief Mutex que serializa todas las llamadas a ncurses.
+ *
+ * Debe adquirirse antes de cualquier función de ncurses
+ * (render_board, attron, mvaddch, refresh, etc.) para evitar
+ * que dos hilos escriban en la pantalla al mismo tiempo.
+ *
+ * @note Nunca adquirir board_mutex estando dentro de render_mutex.
+ *       render_board() libera board_mutex antes de retornar.
+ */
+extern pthread_mutex_t render_mutex;
+
+/**
  * @brief Inicializa todas las primitivas de sincronización.
  *
  * Inicializa:

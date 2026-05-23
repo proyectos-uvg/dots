@@ -11,6 +11,7 @@
 #include "game_state.h"
 #include "sync.h"
 #include "board.h"
+#include "logic.h"
 
 /**
  * @brief Estado global compartido de la partida.
@@ -38,6 +39,11 @@ pthread_cond_t board_updated;
  *        entrada de usuario y lógica del juego.
  */
 sem_t input_ready;
+
+/**
+ * @brief Mutex que serializa el acceso a ncurses entre hilos.
+ */
+pthread_mutex_t render_mutex;
 
 /**
  * @brief Función principal de la aplicación.
@@ -84,13 +90,19 @@ int main(void)
     render_board();
 
     pthread_t input_tid;
+    pthread_t logic_tid;
 
-    pthread_create(&input_tid,
-                   NULL,
-                   input_thread,
-                   NULL);
+    /* Lanzar hilo de lógica primero para que ya esté esperando
+     * en board_updated cuando input_thread empiece a jugar. */
+    pthread_create(&logic_tid, NULL, game_loop_thread, NULL);
+    pthread_create(&input_tid, NULL, input_thread, NULL);
 
     pthread_join(input_tid, NULL);
+
+    /* Despertar game_loop_thread para que detecte el fin de partida
+     * y pueda salir de pthread_cond_wait. */
+    pthread_cond_broadcast(&board_updated);
+    pthread_join(logic_tid, NULL);
 
     cleanup();
 
