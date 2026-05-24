@@ -6,10 +6,49 @@
 #include "screens.h"
 #include "board.h"
 #include "game_state.h"
+#include "logic.h"
 
 #include <ncurses.h>
+#include <cstdio>
+#include <cstdarg>
 
 #define PAIR_TITLE 6
+
+/** Margen izquierdo del bloque de contenido en pantallas de texto. */
+static int content_left(void)
+{
+    int margin = (COLS - 68) / 2;
+    return (margin < 2) ? 2 : margin;
+}
+
+/** Avanza una fila tras imprimir una línea de cuerpo. */
+static int draw_body_line(int row, int col, const char* text)
+{
+    mvprintw(row, col, "%s", text);
+    return row + 1;
+}
+
+/** Igual que draw_body_line, con formato printf. */
+static int draw_body_fmt(int row, int col, const char* fmt, ...)
+{
+    char buf[128];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    return draw_body_line(row, col, buf);
+}
+
+/** Imprime un encabezado de sección y devuelve la siguiente fila libre. */
+static int draw_section_header(int row, int col, const char* title)
+{
+    attron(A_BOLD | COLOR_PAIR(PAIR_TITLE));
+    mvprintw(row, col, "%s", title);
+    attroff(A_BOLD | COLOR_PAIR(PAIR_TITLE));
+    return row + 1;
+}
 
 static void draw_title(const char* text, int row)
 {
@@ -59,17 +98,65 @@ static void render_menu_screen(void)
 
 static void render_instructions_screen(void)
 {
-    draw_title("=== INSTRUCCIONES ===", 2);
+    const int col = content_left();
+    int row     = 1;
 
-    mvprintw(5, 4, "Forma cadenas de puntos adyacentes del mismo color.");
-    mvprintw(6, 4, "ESPACIO: agregar punto | ENTER: confirmar jugada");
-    mvprintw(7, 4, "Ciclo cerrado: elimina todos los puntos de ese color.");
-    mvprintw(8, 4, "BACKSPACE: deshacer | ESC: cancelar seleccion");
-    mvprintw(9, 4, "Q: abandonar partida");
-    mvprintw(11, 4, "Modo lento: 500 pts en 30 movimientos.");
-    mvprintw(12, 4, "Modo rapido: 800 pts en 20 movimientos.");
+    draw_title("=== INSTRUCCIONES ===", row);
+    row += 2;
 
-    mvprintw(15, 4, "ENTER = volver al menu");
+    row = draw_section_header(row, col, "OBJETIVO");
+    row = draw_body_line(row, col,
+        "Conecta puntos del mismo color, forma cadenas y alcanza la meta");
+    row = draw_body_line(row, col,
+        "de puntos antes de quedarte sin movimientos.");
+
+    row++;
+    row = draw_section_header(row, col, "CONTROLES");
+    row = draw_body_line(row, col,
+        "  Flechas   Mover cursor    ESPACIO   Agregar a la cadena");
+    row = draw_body_line(row, col,
+        "  ENTER     Confirmar       BACKSPACE Deshacer ultimo punto");
+    row = draw_body_line(row, col,
+        "  ESC       Cancelar sel.   Q         Abandonar partida");
+
+    row++;
+    row = draw_section_header(row, col, "COMO FORMAR CADENAS");
+    row = draw_body_line(row, col,
+        "  Elige un punto (ESPACIO). Une vecinos ortogonales del mismo");
+    row = draw_body_line(row, col,
+        "  color. Minimo 2 puntos. ENTER elimina la cadena; caen y");
+    row = draw_body_line(row, col,
+        "  aparecen puntos nuevos en los huecos.");
+
+    row++;
+    row = draw_section_header(row, col, "BONUS POR CICLOS");
+    row = draw_body_line(row, col,
+        "  Cierra un ciclo (vuelve al inicio, 4+ puntos): borra todo");
+    row = draw_body_fmt(row, col,
+        "  el color. Puntos: (cadena x %d + extras x %d) x %d.",
+        BASE_POINTS_PER_DOT, CYCLE_BONUS_PER_EXTRA, CYCLE_MULTIPLIER);
+    row = draw_body_fmt(row, col,
+        "  Cadena normal: longitud x %d.", BASE_POINTS_PER_DOT);
+
+    row++;
+    row = draw_section_header(row, col, "VICTORIA Y DERROTA");
+    row = draw_body_line(row, col,
+        "  Ganas al llegar a la meta: Lento 500/30 movs | Rapido 800/20.");
+    row = draw_body_line(row, col,
+        "  Pierdes si se acaban los movimientos o abandonas con Q.");
+
+    const char* footer = "B o ESC = volver al menu";
+    int flen = 0;
+    for (const char* p = footer; *p; p++)
+        flen++;
+
+    int foot_row = (LINES > 2) ? LINES - 2 : row + 1;
+    if (foot_row <= row)
+        foot_row = row + 1;
+
+    attron(A_DIM);
+    mvaddstr(foot_row, (COLS - flen) / 2, footer);
+    attroff(A_DIM);
 }
 
 static void render_mode_select_screen(void)

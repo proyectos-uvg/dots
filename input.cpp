@@ -193,7 +193,7 @@ static bool handle_menu_input(int ch)
 
 static bool handle_instructions_input(int ch)
 {
-    if (ch == '\n' || ch == 27) {
+    if (ch == 27 || ch == 'b' || ch == 'B') {
         g_state.current_screen = SCREEN_MENU;
         return true;
     }
