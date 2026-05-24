@@ -18,6 +18,7 @@
  
 #include <cstdlib>
 #include <pthread.h>
+#include <unistd.h>
  
 /* ------------------------------------------------------------------ */
 /* Variables internas del hilo de juego                                */
@@ -51,21 +52,35 @@ int calculate_score(int chain_len, bool is_cycle, int extras)
 /* apply_gravity_col                                                    */
 /* ------------------------------------------------------------------ */
  
-void apply_gravity_col(int col)
-{
-    /* Busca el hueco más bajo */
-    int write = BOARD_SIZE - 1;
-    while (write >= 0 && g_state.board[write][col] != -1)
-        write--;
- 
-    /* Baja los puntos válidos que estén por encima */
-    for (int read = write - 1; read >= 0; read--)
-    {
-        if (g_state.board[read][col] != -1)
-        {
-            g_state.board[write][col] = g_state.board[read][col];
-            g_state.board[read][col]  = -1;
-            write--;
+void apply_gravity_col(int col) {
+    int delay = (g_state.game_mode == MODE_FAST) ? 120000 : 240000;
+
+    /*
+     * Animación de caída paso a paso.
+     * Cada iteración baja todos los puntos de la columna una fila
+     * si la celda inferior está vacía (-1).
+     * Paramos cuando ningún punto se movió en el último paso.
+     */
+    bool moved = true;
+
+    while (moved) {
+        moved = false;
+
+        for (int r = BOARD_SIZE - 2; r >= 0; r--) {
+            if (g_state.board[r][col] != -1 && g_state.board[r + 1][col] == -1) {
+                g_state.board[r + 1][col] = g_state.board[r][col];
+                g_state.board[r][col] = -1;
+                moved = true;
+            }
+        }
+
+        if (moved) {
+            pthread_mutex_unlock(&board_mutex);
+            pthread_mutex_lock(&render_mutex);
+            render_board();
+            pthread_mutex_unlock(&render_mutex);
+            usleep(delay);
+            pthread_mutex_lock(&board_mutex);
         }
     }
 }
