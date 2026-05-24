@@ -1,11 +1,12 @@
 /**
  * @file input.cpp
- * @brief Lógica de interacción del jugador.
+ * @brief Lógica de interacción del jugador y navegación entre pantallas.
  */
 
 #include "input.h"
 #include "sync.h"
 #include "board.h"
+#include "screens.h"
 
 #include <ncurses.h>
 #include <vector>
@@ -14,97 +15,64 @@
 static int cursor_row = 0;
 static int cursor_col = 0;
 
-/**
- * Lista de puntos seleccionados.
- */
 static std::vector<SelectedPoint> selection;
-
-/**
- * Color actual de la cadena.
- */
 static int current_color = -1;
 
-/**
- * Verifica adyacencia ortogonal.
- */
-bool is_adjacent(int r1, int c1, int r2, int c2) {
+/* ------------------------------------------------------------------ */
+/* Utilidades de gameplay (sin cambios de lógica)                      */
+/* ------------------------------------------------------------------ */
 
+bool is_adjacent(int r1, int c1, int r2, int c2)
+{
     int dr = abs(r1 - r2);
     int dc = abs(c1 - c2);
-
     return (dr + dc) == 1;
 }
 
-/**
- * Verifica si ya existe un punto en la cadena.
- */
 bool already_selected(const std::vector<SelectedPoint>& path,
                       int row,
-                      int col) {
-
+                      int col)
+{
     for (const auto& p : path) {
-
-        if (p.row == row && p.col == col) {
+        if (p.row == row && p.col == col)
             return true;
-        }
     }
-
     return false;
 }
 
-/**
- * Detecta ciclo cerrado.
- */
-bool detect_cycle(const std::vector<SelectedPoint>& path) {
-
-    if (path.size() < 4) {
+bool detect_cycle(const std::vector<SelectedPoint>& path)
+{
+    if (path.size() < 4)
         return false;
-    }
 
     SelectedPoint last = path.back();
-
     int count = 0;
 
     for (const auto& p : path) {
-
-        if (p.row == last.row &&
-            p.col == last.col) {
-
+        if (p.row == last.row && p.col == last.col)
             count++;
-        }
     }
 
     return count >= 2;
 }
 
-/**
- * Elimina puntos seleccionados.
- */
-static void remove_selection(void) {
-
+static void remove_selection(void)
+{
     pthread_mutex_lock(&board_mutex);
 
     bool cycle = detect_cycle(selection);
-
     int target_color = current_color;
 
     if (cycle) {
-
         for (int r = 0; r < BOARD_SIZE; r++) {
-
             for (int c = 0; c < BOARD_SIZE; c++) {
-
-                if (g_state.board[r][c] == target_color) {
+                if (g_state.board[r][c] == target_color)
                     g_state.board[r][c] = -1;
-                }
             }
         }
-
     } else {
-
-        for (const auto& p : selection) {
+        for (const auto& p : selection)
             g_state.board[p.row][p.col] = -1;
-        }
     }
 
     g_state.moves_remaining--;
@@ -115,170 +83,326 @@ static void remove_selection(void) {
     current_color = -1;
 }
 
-/**
- * Hilo principal de entrada.
- */
-void* input_thread(void* arg) {
+static void reset_playing_cursor(void)
+{
+    cursor_row = 0;
+    cursor_col = 0;
+    selection.clear();
+    current_color = -1;
+}
 
-    (void)arg;
+static void start_game_with_mode(int mode)
+{
+    g_state.game_mode = mode;
+    g_state.mode_index = (mode == MODE_FAST) ? 1 : 0;
+    init_board();
+    reset_playing_cursor();
+    g_state.current_screen = SCREEN_PLAYING;
+}
 
-    bool needs_broadcast = false;
+static void go_to_game_over(void)
+{
+    pthread_mutex_lock(&board_mutex);
+    g_state.last_score = g_state.score;
+    if (g_state.score > g_state.high_score)
+        g_state.high_score = g_state.score;
+    g_state.current_screen = SCREEN_GAME_OVER;
+    pthread_mutex_unlock(&board_mutex);
+}
 
-    while (g_state.game_status == STATUS_RUNNING) {
-
-        int ch = getch();
-
-        switch (ch) {
-
-            case KEY_UP:
-
-                if (cursor_row > 0)
-                    cursor_row--;
-
-                break;
-
-            case KEY_DOWN:
-
-                if (cursor_row < BOARD_SIZE - 1)
-                    cursor_row++;
-
-                break;
-
-            case KEY_LEFT:
-
-                if (cursor_col > 0)
-                    cursor_col--;
-
-                break;
-
-            case KEY_RIGHT:
-
-                if (cursor_col < BOARD_SIZE - 1)
-                    cursor_col++;
-
-                break;
-
-            case KEY_BACKSPACE:
-
-                if (!selection.empty()) {
-                    selection.pop_back();
-                    if (selection.empty())
-                        current_color = -1;
-                }
-
-                break;
-
-            case 27:
-
-                selection.clear();
-                current_color = -1;
-
-                break;
-
-            case ' ':
-            {
-                pthread_mutex_lock(&board_mutex);
-
-                int color =
-                    g_state.board[cursor_row][cursor_col];
-
-                pthread_mutex_unlock(&board_mutex);
-
-                if (color == -1)
-                    break;
-
-                if (selection.empty()) {
-
-                    selection.push_back(
-                        {cursor_row, cursor_col});
-
-                    current_color = color;
-
-                } else {
-
-                    SelectedPoint last  = selection.back();
-                    SelectedPoint first = selection.front();
-
-                    if (!is_adjacent(last.row, last.col, cursor_row, cursor_col))
-                        break;
-
-                    if (color != current_color)
-                        break;
-
-                    bool is_first = (cursor_row == first.row &&cursor_col == first.col);
-
-                    /* Solo se permite volver al primer punto para cerrar
-                     * ciclo. Cualquier otro punto
-                     * ya visitado se ignora para evitar ciclos falsos. */
-                    if (already_selected(selection, cursor_row, cursor_col)) {
-                        if (is_first && (int)selection.size() >= 3)
-                            selection.push_back({cursor_row, cursor_col});
-                        break;
-                    }
-
-                    selection.push_back({cursor_row, cursor_col});
-                }
-
-                break;
-            }
-
-            case '\n':
-
-                if (selection.size() >= 2) {
-                    remove_selection();
-                    needs_broadcast = true;
-                }
-
-                break;
-
-            case 'q':
-
-                g_state.game_status = STATUS_LOST;
-                break;
-        }
-
-        pthread_mutex_lock(&render_mutex);
-
-        render_board();
-
-        /* Resaltar puntos en la selección actual.
-         * color+1 mapea COLOR_IDX_* al PAIR_* correspondiente. */
-        for (const auto& sp : selection) {
-            int color = g_state.board[sp.row][sp.col];
-            if (color >= 0 && color < NUM_COLORS) {
-                attron(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
-                mvaddch(6 + sp.row, 6 + sp.col * 4, ACS_BLOCK);
-                attroff(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
-            }
-        }
-
-        /* Dibujar cursor encima de todo */
-        int draw_row = 6 + cursor_row;
-        int draw_col = 6 + cursor_col * 4;
-
-        attron(A_REVERSE | A_BOLD);
-        mvaddch(draw_row, draw_col, ACS_BLOCK);
-        attroff(A_REVERSE | A_BOLD);
-
-        refresh();
-
-        pthread_mutex_unlock(&render_mutex);
-
-        /* Broadcast después de render para que game_loop_thread
-         * no intente dibujar mientras input_thread aún está en pantalla. */
-        if (needs_broadcast) {
-            pthread_cond_broadcast(&board_updated);
-            needs_broadcast = false;
+static void draw_playing_overlays(void)
+{
+    for (const auto& sp : selection) {
+        int color = g_state.board[sp.row][sp.col];
+        if (color >= 0 && color < NUM_COLORS) {
+            attron(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
+            mvaddch(6 + sp.row, 6 + sp.col * 4, ACS_BLOCK);
+            attroff(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
         }
     }
 
-    /* Mostrar estado final (GANASTE / PERDISTE) y esperar confirmación. */
+    attron(A_REVERSE | A_BOLD);
+    mvaddch(6 + cursor_row, 6 + cursor_col * 4, ACS_BLOCK);
+    attroff(A_REVERSE | A_BOLD);
+}
+
+static void redraw(void)
+{
     pthread_mutex_lock(&render_mutex);
-    render_board();
-    mvprintw(20, 2, "Presiona cualquier tecla para salir...");
-    refresh();
+
+    if (g_state.current_screen == SCREEN_PLAYING) {
+        clear();
+        render_playing();
+        if (g_state.game_status == STATUS_RUNNING)
+            draw_playing_overlays();
+        refresh();
+    } else {
+        render_screen();
+    }
+
     pthread_mutex_unlock(&render_mutex);
-    getch();
+}
+
+/* ------------------------------------------------------------------ */
+/* Handlers por pantalla                                               */
+/* ------------------------------------------------------------------ */
+
+static bool handle_menu_input(int ch)
+{
+    switch (ch) {
+
+    case KEY_UP:
+        if (g_state.menu_index > 0)
+            g_state.menu_index--;
+        return true;
+
+    case KEY_DOWN:
+        if (g_state.menu_index < MENU_ITEM_COUNT - 1)
+            g_state.menu_index++;
+        return true;
+
+    case '\n':
+        switch (g_state.menu_index) {
+
+        case 0:
+            g_state.mode_index = 0;
+            g_state.current_screen = SCREEN_MODE_SELECT;
+            break;
+
+        case 1:
+            g_state.current_screen = SCREEN_INSTRUCTIONS;
+            break;
+
+        case 2:
+            g_state.current_screen = SCREEN_SCORES;
+            break;
+
+        case 3:
+            g_state.current_screen = SCREEN_EXIT;
+            return false;
+
+        default:
+            break;
+        }
+        return true;
+
+    default:
+        return true;
+    }
+}
+
+static bool handle_instructions_input(int ch)
+{
+    if (ch == '\n' || ch == 27) {
+        g_state.current_screen = SCREEN_MENU;
+        return true;
+    }
+    return true;
+}
+
+static bool handle_mode_select_input(int ch)
+{
+    switch (ch) {
+
+    case KEY_UP:
+        if (g_state.mode_index > 0)
+            g_state.mode_index--;
+        return true;
+
+    case KEY_DOWN:
+        if (g_state.mode_index < MODE_ITEM_COUNT - 1)
+            g_state.mode_index++;
+        return true;
+
+    case '\n':
+        start_game_with_mode(g_state.mode_index == 0 ? MODE_SLOW : MODE_FAST);
+        return true;
+
+    case 27:
+        g_state.current_screen = SCREEN_MENU;
+        return true;
+
+    default:
+        return true;
+    }
+}
+
+static bool handle_scores_input(int ch)
+{
+    if (ch == '\n' || ch == 27) {
+        g_state.current_screen = SCREEN_MENU;
+        return true;
+    }
+    return true;
+}
+
+static bool handle_game_over_input(int ch)
+{
+    if (ch == '\n') {
+        g_state.game_status = STATUS_RUNNING;
+        g_state.current_screen = SCREEN_MENU;
+        g_state.menu_index = 0;
+        return true;
+    }
+    return true;
+}
+
+static bool handle_playing_input(int ch)
+{
+    bool needs_broadcast = false;
+
+    if (g_state.game_status != STATUS_RUNNING) {
+        go_to_game_over();
+        return true;
+    }
+
+    switch (ch) {
+
+    case KEY_UP:
+        if (cursor_row > 0)
+            cursor_row--;
+        break;
+
+    case KEY_DOWN:
+        if (cursor_row < BOARD_SIZE - 1)
+            cursor_row++;
+        break;
+
+    case KEY_LEFT:
+        if (cursor_col > 0)
+            cursor_col--;
+        break;
+
+    case KEY_RIGHT:
+        if (cursor_col < BOARD_SIZE - 1)
+            cursor_col++;
+        break;
+
+    case KEY_BACKSPACE:
+        if (!selection.empty()) {
+            selection.pop_back();
+            if (selection.empty())
+                current_color = -1;
+        }
+        break;
+
+    case 27:
+        selection.clear();
+        current_color = -1;
+        break;
+
+    case ' ':
+    {
+        pthread_mutex_lock(&board_mutex);
+        int color = g_state.board[cursor_row][cursor_col];
+        pthread_mutex_unlock(&board_mutex);
+
+        if (color == -1)
+            break;
+
+        if (selection.empty()) {
+            selection.push_back({cursor_row, cursor_col});
+            current_color = color;
+        } else {
+            SelectedPoint last  = selection.back();
+            SelectedPoint first = selection.front();
+
+            if (!is_adjacent(last.row, last.col, cursor_row, cursor_col))
+                break;
+
+            if (color != current_color)
+                break;
+
+            bool is_first = (cursor_row == first.row &&
+                             cursor_col == first.col);
+
+            if (already_selected(selection, cursor_row, cursor_col)) {
+                if (is_first && (int)selection.size() >= 3)
+                    selection.push_back({cursor_row, cursor_col});
+                break;
+            }
+
+            selection.push_back({cursor_row, cursor_col});
+        }
+        break;
+    }
+
+    case '\n':
+        if (selection.size() >= 2) {
+            remove_selection();
+            needs_broadcast = true;
+        }
+        break;
+
+    case 'q':
+        g_state.game_status = STATUS_LOST;
+        go_to_game_over();
+        break;
+
+    default:
+        break;
+    }
+
+    if (g_state.game_status != STATUS_RUNNING &&
+        g_state.current_screen == SCREEN_PLAYING)
+    {
+        go_to_game_over();
+    }
+
+    if (needs_broadcast)
+        pthread_cond_broadcast(&board_updated);
+
+    return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hilo de entrada                                                     */
+/* ------------------------------------------------------------------ */
+
+void* input_thread(void* arg)
+{
+    (void)arg;
+
+    while (g_state.current_screen != SCREEN_EXIT) {
+
+        int ch = getch();
+        bool keep_running = true;
+
+        switch (g_state.current_screen) {
+
+        case SCREEN_MENU:
+            keep_running = handle_menu_input(ch);
+            break;
+
+        case SCREEN_INSTRUCTIONS:
+            keep_running = handle_instructions_input(ch);
+            break;
+
+        case SCREEN_MODE_SELECT:
+            keep_running = handle_mode_select_input(ch);
+            break;
+
+        case SCREEN_PLAYING:
+            keep_running = handle_playing_input(ch);
+            break;
+
+        case SCREEN_SCORES:
+            keep_running = handle_scores_input(ch);
+            break;
+
+        case SCREEN_GAME_OVER:
+            keep_running = handle_game_over_input(ch);
+            break;
+
+        default:
+            break;
+        }
+
+        if (!keep_running)
+            break;
+
+        redraw();
+    }
 
     return NULL;
 }

@@ -12,6 +12,7 @@
 #include "sync.h"
 #include "board.h"
 #include "logic.h"
+#include "screens.h"
 
 /**
  * @brief Estado global compartido de la partida.
@@ -85,9 +86,16 @@ int main(void)
 
     init_sync();
 
-    init_board();
+    g_state.current_screen = SCREEN_MENU;
+    g_state.menu_index     = 0;
+    g_state.mode_index     = 0;
+    g_state.high_score     = 0;
+    g_state.last_score     = 0;
+    g_state.game_status    = STATUS_RUNNING;
 
-    render_board();
+    pthread_mutex_lock(&render_mutex);
+    render_screen();
+    pthread_mutex_unlock(&render_mutex);
 
     pthread_t input_tid;
     pthread_t logic_tid;

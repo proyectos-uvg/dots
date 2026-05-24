@@ -14,8 +14,10 @@
 #include "logic.h"
 #include "sync.h"
 #include "board.h"
+#include "screens.h"
 #include "game_state.h"
- 
+
+#include <ncurses.h>
 #include <cstdlib>
 #include <pthread.h>
 #include <unistd.h>
@@ -107,10 +109,20 @@ void check_game_over(void)
     if (g_state.score >= g_state.score_goal)
     {
         g_state.game_status = STATUS_WON;
+    }
+    else if (g_state.moves_remaining <= 0)
+    {
+        g_state.game_status = STATUS_LOST;
+    }
+    else
+    {
         return;
     }
-    if (g_state.moves_remaining <= 0)
-        g_state.game_status = STATUS_LOST;
+
+    g_state.last_score = g_state.score;
+    if (g_state.score > g_state.high_score)
+        g_state.high_score = g_state.score;
+    g_state.current_screen = SCREEN_GAME_OVER;
 }
  
 /* ------------------------------------------------------------------ */
@@ -216,14 +228,17 @@ void* game_loop_thread(void* arg)
      */
     pthread_mutex_t wait_mutex = PTHREAD_MUTEX_INITIALIZER;
  
-    while (g_state.game_status == STATUS_RUNNING)
+    while (g_state.current_screen != SCREEN_EXIT)
     {
         pthread_mutex_lock(&wait_mutex);
         pthread_cond_wait(&board_updated, &wait_mutex);
         pthread_mutex_unlock(&wait_mutex);
- 
-        if (g_state.game_status != STATUS_RUNNING)
-            break;
+
+        if (g_state.current_screen != SCREEN_PLAYING ||
+            g_state.game_status != STATUS_RUNNING)
+        {
+            continue;
+        }
  
         /*
          * Verificar si hay huecos que procesar.
@@ -247,8 +262,15 @@ void* game_loop_thread(void* arg)
          */
         std::vector<SelectedPoint> empty_path;
         process_move(empty_path, -1, false);
+
         pthread_mutex_lock(&render_mutex);
-        render_board();
+        if (g_state.current_screen == SCREEN_GAME_OVER) {
+            render_screen();
+        } else if (g_state.current_screen == SCREEN_PLAYING) {
+            clear();
+            render_playing();
+            refresh();
+        }
         pthread_mutex_unlock(&render_mutex);
     }
  

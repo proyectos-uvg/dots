@@ -72,6 +72,29 @@
 #define COLOR_IDX_MAGENTA 4
 
 /**
+ * @brief Cantidad de opciones en el menú principal.
+ */
+#define MENU_ITEM_COUNT 4
+
+/**
+ * @brief Cantidad de opciones en la pantalla de selección de modo.
+ */
+#define MODE_ITEM_COUNT 2
+
+/**
+ * @brief Pantallas de la aplicación.
+ */
+typedef enum {
+    SCREEN_MENU,
+    SCREEN_INSTRUCTIONS,
+    SCREEN_MODE_SELECT,
+    SCREEN_PLAYING,
+    SCREEN_SCORES,
+    SCREEN_GAME_OVER,
+    SCREEN_EXIT
+} ScreenState;
+
+/**
  * @brief Representa un punto individual dentro del tablero.
  *
  * Cada punto posee:
@@ -157,6 +180,33 @@ typedef struct {
      * - MODE_FAST : 800
      */
     int score_goal;
+
+    /**
+     * @brief Pantalla activa de la aplicación.
+     *
+     * @note Modificada principalmente por input_thread.
+     */
+    ScreenState current_screen;
+
+    /**
+     * @brief Índice resaltado en el menú principal (0 … MENU_ITEM_COUNT-1).
+     */
+    int menu_index;
+
+    /**
+     * @brief Índice resaltado en la selección de modo (0=lento, 1=rápido).
+     */
+    int mode_index;
+
+    /**
+     * @brief Mejor puntaje alcanzado en la sesión.
+     */
+    int high_score;
+
+    /**
+     * @brief Puntaje de la última partida finalizada.
+     */
+    int last_score;
 
 } GameState;
 

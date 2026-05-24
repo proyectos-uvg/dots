@@ -205,21 +205,10 @@ void init_board(void)
 }
 
 /**
- * @brief Renderiza completamente la interfaz del juego.
- *
- * Dibuja:
- * - Encabezado principal.
- * - Puntaje y estadísticas.
- * - Etiquetas del tablero.
- * - Puntos coloreados.
- * - Estado actual de la partida.
- *
- * @note El acceso al tablero se protege mediante board_mutex.
+ * @brief Renderiza la pantalla de partida (sin clear ni refresh).
  */
-void render_board(void)
+void render_playing(void)
 {
-    clear();
-
     attron(A_BOLD | COLOR_PAIR(PAIR_TITLE));
 
     mvaddstr(1,
@@ -321,7 +310,12 @@ void render_board(void)
     mvprintw(status_row + 4,
              2,
              "Flechas = mover | ESPACIO = seleccionar | ENTER = confirmar | BACKSPACE = deshacer ultimo | ESC = cancelar todo | Q = salir");
+}
 
+void render_board(void)
+{
+    clear();
+    render_playing();
     refresh();
 }
 

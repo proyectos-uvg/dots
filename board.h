@@ -37,19 +37,19 @@ void init_display(void);
 void init_board(void);
 
 /**
- * @brief Renderiza completamente la interfaz del juego.
+ * @brief Renderiza la pantalla de partida (tablero y HUD).
  *
- * Dibuja:
- * - Encabezado principal.
- * - Puntaje y estadísticas.
- * - Etiquetas de filas y columnas.
- * - Tablero de puntos coloreados.
- * - Estado actual de la partida.
- *
- * @pre initscr() ya fue ejecutado.
- * @pre init_display() ya fue ejecutado.
+ * No realiza clear() ni refresh(); pensado para el hilo de lógica
+ * y overlays de input_thread sobre SCREEN_PLAYING.
  *
  * @note El acceso al tablero se protege mediante board_mutex.
+ */
+void render_playing(void);
+
+/**
+ * @brief Renderiza la partida y refresca la pantalla.
+ *
+ * @note Usado por game_loop_thread durante animaciones de gravedad.
  */
 void render_board(void);
 
