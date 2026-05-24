@@ -89,7 +89,7 @@ void fill_column(int col)
  
 void check_game_over(void)
 {
-    if (g_state.score >= WIN_SCORE)
+    if (g_state.score >= g_state.score_goal)
     {
         g_state.game_status = STATUS_WON;
         return;

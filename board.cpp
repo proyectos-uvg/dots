@@ -180,9 +180,16 @@ void init_board(void)
     pthread_mutex_lock(&board_mutex);
 
     g_state.score = 0;
-    g_state.moves_remaining = MAX_MOVES;
     g_state.game_mode = MODE_SLOW;
     g_state.game_status = STATUS_RUNNING;
+
+    if (g_state.game_mode == MODE_FAST) {
+        g_state.score_goal = 800;
+        g_state.moves_remaining = 20;
+    } else {
+        g_state.score_goal = 500;
+        g_state.moves_remaining = 30;
+    }
 
     for (int r = 0; r < BOARD_SIZE; r++)
     {
@@ -222,8 +229,9 @@ void render_board(void)
     attroff(A_BOLD | COLOR_PAIR(PAIR_TITLE));
 
     mvprintw(3, 2,
-             "Puntaje : %d",
-             g_state.score);
+             "Puntaje : %d / %d",
+             g_state.score,
+             g_state.score_goal);
 
     mvprintw(4, 2,
              "Movs.   : %d / %d",
@@ -312,7 +320,7 @@ void render_board(void)
 
     mvprintw(status_row + 4,
              2,
-             "Controles: Flechas mover | ESPACIO seleccionar | ENTER confirmar");
+             "Flechas = mover | ESPACIO = seleccionar | ENTER = confirmar | BACKSPACE = deshacer ultimo | ESC = cancelar todo | Q = salir");
 
     refresh();
 }

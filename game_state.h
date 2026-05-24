@@ -149,6 +149,15 @@ typedef struct {
      */
     int game_status;
 
+    /**
+     * @brief Puntaje objetivo para ganar la partida.
+     *
+     * Se asigna en init_board() según el modo de juego:
+     * - MODE_SLOW : 500
+     * - MODE_FAST : 800
+     */
+    int score_goal;
+
 } GameState;
 
 /**

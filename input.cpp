@@ -158,6 +158,23 @@ void* input_thread(void* arg) {
 
                 break;
 
+            case KEY_BACKSPACE:
+
+                if (!selection.empty()) {
+                    selection.pop_back();
+                    if (selection.empty())
+                        current_color = -1;
+                }
+
+                break;
+
+            case 27:
+
+                selection.clear();
+                current_color = -1;
+
+                break;
+
             case ' ':
             {
                 pthread_mutex_lock(&board_mutex);
