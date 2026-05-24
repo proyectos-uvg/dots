@@ -16,6 +16,7 @@
 #include "board.h"
 #include "screens.h"
 #include "game_state.h"
+#include "game_config.h"
 
 #include <ncurses.h>
 #include <cstdlib>
@@ -55,7 +56,7 @@ int calculate_score(int chain_len, bool is_cycle, int extras)
 /* ------------------------------------------------------------------ */
  
 void apply_gravity_col(int col) {
-    int delay = (g_state.game_mode == MODE_FAST) ? 120000 : 240000;
+    unsigned int delay = get_tick_delay(g_state.game_mode);
 
     /*
      * Animación de caída paso a paso.

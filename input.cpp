@@ -91,10 +91,14 @@ static void reset_playing_cursor(void)
     current_color = -1;
 }
 
-static void start_game_with_mode(int mode)
+static GameMode mode_from_index(int index)
 {
-    g_state.game_mode = mode;
-    g_state.mode_index = (mode == MODE_FAST) ? 1 : 0;
+    return (index == 0) ? SLOW : FAST;
+}
+
+static void start_game_from_mode_select(void)
+{
+    g_state.game_mode = mode_from_index(g_state.mode_index);
     init_board();
     reset_playing_cursor();
     g_state.current_screen = SCREEN_PLAYING;
@@ -215,10 +219,12 @@ static bool handle_mode_select_input(int ch)
         return true;
 
     case '\n':
-        start_game_with_mode(g_state.mode_index == 0 ? MODE_SLOW : MODE_FAST);
+        start_game_from_mode_select();
         return true;
 
     case 27:
+    case 'b':
+    case 'B':
         g_state.current_screen = SCREEN_MENU;
         return true;
 

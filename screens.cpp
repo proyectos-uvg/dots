@@ -6,6 +6,7 @@
 #include "screens.h"
 #include "board.h"
 #include "game_state.h"
+#include "game_config.h"
 #include "logic.h"
 
 #include <ncurses.h>
@@ -161,15 +162,22 @@ static void render_instructions_screen(void)
 
 static void render_mode_select_screen(void)
 {
-    draw_title("=== SELECCIONAR MODO ===", 2);
+    char slow_line[64];
+    char fast_line[64];
 
-    static const char* modes[] = {
-        "Modo Lento  (500 pts / 30 movs)",
-        "Modo Rapido (800 pts / 20 movs)"
-    };
+    snprintf(slow_line, sizeof(slow_line),
+             "Slow Mode  (%d pts / %d movs)",
+             get_score_goal(SLOW), get_moves_limit(SLOW));
+    snprintf(fast_line, sizeof(fast_line),
+             "Fast Mode  (%d pts / %d movs)",
+             get_score_goal(FAST), get_moves_limit(FAST));
 
-    int start_row = 7;
-    int start_col = (COLS - 34) / 2;
+    const char* modes[] = { slow_line, fast_line };
+
+    draw_title("=== SELECT MODE ===", 2);
+
+    int start_row = 6;
+    int start_col = (COLS - 36) / 2;
     if (start_col < 2)
         start_col = 2;
 
@@ -178,9 +186,9 @@ static void render_mode_select_screen(void)
                        i == g_state.mode_index);
 
     mvprintw(start_row + MODE_ITEM_COUNT * 2 + 2, start_col,
-             "Flechas = navegar | ENTER = iniciar");
+             "Flechas = navegar | ENTER = seleccionar");
     mvprintw(start_row + MODE_ITEM_COUNT * 2 + 4, start_col,
-             "ENTER en menu anterior = volver");
+             "ESC o B = volver al menu");
 }
 
 static void render_scores_screen(void)

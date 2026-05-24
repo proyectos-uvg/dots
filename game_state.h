@@ -37,14 +37,12 @@
 #define STATUS_LOST 2
 
 /**
- * @brief Modo de juego lento.
+ * @brief Modo de juego (velocidad y reglas de partida).
  */
-#define MODE_SLOW 1
-
-/**
- * @brief Modo de juego rápido.
- */
-#define MODE_FAST 2
+typedef enum {
+    SLOW,
+    FAST
+} GameMode;
 
 /**
  * @brief Índice lógico del color rojo.
@@ -154,13 +152,11 @@ typedef struct {
     int moves_remaining;
 
     /**
-     * @brief Velocidad actual del juego.
+     * @brief Modo de juego seleccionado (SLOW o FAST).
      *
-     * Valores válidos:
-     * - MODE_SLOW
-     * - MODE_FAST
+     * Se asigna en MODE_SELECT antes de iniciar PLAYING.
      */
-    int game_mode;
+    GameMode game_mode;
 
     /**
      * @brief Estado actual de la partida.
@@ -175,9 +171,7 @@ typedef struct {
     /**
      * @brief Puntaje objetivo para ganar la partida.
      *
-     * Se asigna en init_board() según el modo de juego:
-     * - MODE_SLOW : 500
-     * - MODE_FAST : 800
+     * Se asigna en init_board() con get_score_goal(game_mode).
      */
     int score_goal;
 

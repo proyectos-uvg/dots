@@ -6,6 +6,7 @@
 
 #include "board.h"
 #include "game_state.h"
+#include "game_config.h"
 #include "sync.h"
 
 #include <ncurses.h>
@@ -179,17 +180,10 @@ void init_board(void)
 
     pthread_mutex_lock(&board_mutex);
 
-    g_state.score = 0;
-    g_state.game_mode = MODE_SLOW;
-    g_state.game_status = STATUS_RUNNING;
-
-    if (g_state.game_mode == MODE_FAST) {
-        g_state.score_goal = 800;
-        g_state.moves_remaining = 20;
-    } else {
-        g_state.score_goal = 500;
-        g_state.moves_remaining = 30;
-    }
+    g_state.score           = 0;
+    g_state.game_status     = STATUS_RUNNING;
+    g_state.score_goal      = get_score_goal(g_state.game_mode);
+    g_state.moves_remaining = get_moves_limit(g_state.game_mode);
 
     for (int r = 0; r < BOARD_SIZE; r++)
     {
@@ -225,11 +219,11 @@ void render_playing(void)
     mvprintw(4, 2,
              "Movs.   : %d / %d",
              g_state.moves_remaining,
-             MAX_MOVES);
+             get_moves_limit(g_state.game_mode));
 
     mvprintw(3, 24,
              "Modo : %s",
-             g_state.game_mode == MODE_SLOW ? "Lento " : "Rapido");
+             game_mode_label(g_state.game_mode));
 
     for (int c = 0; c < BOARD_SIZE; c++)
     {
