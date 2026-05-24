@@ -17,6 +17,7 @@
 #include "screens.h"
 #include "game_state.h"
 #include "game_config.h"
+#include "scores.h"
 
 #include <ncurses.h>
 #include <cstdlib>
@@ -120,9 +121,7 @@ void check_game_over(void)
         return;
     }
 
-    g_state.last_score = g_state.score;
-    if (g_state.score > g_state.high_score)
-        g_state.high_score = g_state.score;
+    scores_prepare_match_end(g_state.score);
     g_state.current_screen = SCREEN_GAME_OVER;
 }
  

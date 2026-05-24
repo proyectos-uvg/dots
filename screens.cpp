@@ -8,6 +8,7 @@
 #include "game_state.h"
 #include "game_config.h"
 #include "logic.h"
+#include "scores.h"
 
 #include <ncurses.h>
 #include <cstdio>
@@ -193,32 +194,88 @@ static void render_mode_select_screen(void)
 
 static void render_scores_screen(void)
 {
-    draw_title("=== PUNTUACIONES ===", 2);
+    const int col = content_left();
+    int row     = 1;
 
-    mvprintw(7, 4, "Mejor puntaje : %d", g_state.high_score);
-    mvprintw(8, 4, "Ultima partida : %d", g_state.last_score);
+    draw_title("=== PUNTUACIONES ===", row);
+    row += 2;
 
-    mvprintw(12, 4, "ENTER = volver al menu");
+    row = draw_section_header(row, col, "TOP 10 (mayor a menor)");
+
+    int count = scores_display_count();
+
+    if (count == 0) {
+        row = draw_body_line(row, col, "  (sin puntajes guardados aun)");
+    } else {
+        for (int i = 0; i < count; i++) {
+            ScoreEntry entry;
+
+            if (scores_display_entry(i, &entry))
+                row = draw_body_fmt(row, col, "  %2d.  %-14s  %d pts",
+                                    i + 1, entry.name, entry.score);
+        }
+    }
+
+    row++;
+    if (g_state.last_player_name[0] != '\0') {
+        row = draw_body_fmt(row, col, "  Ultima: %s (%d pts)",
+                            g_state.last_player_name, g_state.last_score);
+    } else {
+        row = draw_body_fmt(row, col, "  Ultima partida : %d pts",
+                            g_state.last_score);
+    }
+    row = draw_body_fmt(row, col, "  Mejor en sesion : %d", g_state.high_score);
+
+    const char* footer = "ENTER o ESC = volver al menu";
+    int flen = 0;
+    for (const char* p = footer; *p; p++)
+        flen++;
+
+    int foot_row = (LINES > 2) ? LINES - 2 : row + 1;
+    if (foot_row <= row)
+        foot_row = row + 1;
+
+    attron(A_DIM);
+    mvaddstr(foot_row, (COLS - flen) / 2, footer);
+    attroff(A_DIM);
 }
 
 static void render_game_over_screen(void)
 {
-    draw_title("=== FIN DE PARTIDA ===", 2);
+    const int col = content_left();
+    int row     = 1;
 
-    mvprintw(6, 4, "Puntaje final : %d / %d",
-             g_state.last_score, g_state.score_goal);
+    draw_title("=== FIN DE PARTIDA ===", row);
+    row += 2;
+
+    row = draw_body_fmt(row, col, "Puntaje final : %d / %d",
+                        g_state.last_score, g_state.score_goal);
 
     if (g_state.game_status == STATUS_WON) {
         attron(COLOR_PAIR(3) | A_BOLD);
-        mvprintw(8, 4, "*** GANASTE! ***");
+        row = draw_body_line(row, col, "*** GANASTE! ***");
         attroff(COLOR_PAIR(3) | A_BOLD);
     } else {
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(8, 4, "*** PERDISTE! ***");
+        row = draw_body_line(row, col, "*** PERDISTE! ***");
         attroff(COLOR_PAIR(1) | A_BOLD);
     }
 
-    mvprintw(11, 4, "ENTER = menu principal");
+    row++;
+
+    if (!g_state.score_saved) {
+        row = draw_section_header(row, col, "INGRESA TU NOMBRE");
+        row = draw_body_line(row, col, "  Escribe tu nombre y presiona ENTER:");
+        row = draw_body_fmt(row, col, "  > %s_", g_state.player_name_input);
+
+        const char* hint = "BACKSPACE = borrar | ENTER = guardar";
+        attron(A_DIM);
+        mvaddstr(row + 1, col, hint);
+        attroff(A_DIM);
+    } else {
+        row = draw_body_fmt(row, col, "  Guardado como: %s", g_state.last_player_name);
+        row = draw_body_line(row, col, "  Presiona ENTER para volver al menu");
+    }
 }
 
 void render_screen(void)

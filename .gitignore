@@ -2,6 +2,9 @@
 dots
 *.o
 
+# Puntajes locales
+scores.txt
+
 # Editor
 .vscode/
 .idea/

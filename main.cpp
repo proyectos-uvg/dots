@@ -13,6 +13,7 @@
 #include "board.h"
 #include "logic.h"
 #include "screens.h"
+#include "scores.h"
 
 /**
  * @brief Estado global compartido de la partida.
@@ -86,13 +87,19 @@ int main(void)
 
     init_sync();
 
+    load_scores();
+
     g_state.current_screen = SCREEN_MENU;
     g_state.menu_index     = 0;
     g_state.mode_index     = 0;
     g_state.game_mode      = SLOW;
-    g_state.high_score     = 0;
-    g_state.last_score     = 0;
-    g_state.game_status    = STATUS_RUNNING;
+    g_state.high_score          = 0;
+    g_state.last_score          = 0;
+    g_state.last_player_name[0] = '\0';
+    g_state.player_name_input[0]= '\0';
+    g_state.player_name_len     = 0;
+    g_state.score_saved         = false;
+    g_state.game_status         = STATUS_RUNNING;
 
     pthread_mutex_lock(&render_mutex);
     render_screen();

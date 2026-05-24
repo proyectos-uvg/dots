@@ -7,10 +7,12 @@
 #include "sync.h"
 #include "board.h"
 #include "screens.h"
+#include "scores.h"
 
 #include <ncurses.h>
 #include <vector>
 #include <cstdlib>
+#include <cstring>
 
 static int cursor_row = 0;
 static int cursor_col = 0;
@@ -107,10 +109,12 @@ static void start_game_from_mode_select(void)
 static void go_to_game_over(void)
 {
     pthread_mutex_lock(&board_mutex);
-    g_state.last_score = g_state.score;
-    if (g_state.score > g_state.high_score)
-        g_state.high_score = g_state.score;
-    g_state.current_screen = SCREEN_GAME_OVER;
+
+    if (g_state.current_screen == SCREEN_PLAYING) {
+        scores_prepare_match_end(g_state.score);
+        g_state.current_screen = SCREEN_GAME_OVER;
+    }
+
     pthread_mutex_unlock(&board_mutex);
 }
 
@@ -178,6 +182,7 @@ static bool handle_menu_input(int ch)
             break;
 
         case 2:
+            load_scores();
             g_state.current_screen = SCREEN_SCORES;
             break;
 
@@ -242,14 +247,50 @@ static bool handle_scores_input(int ch)
     return true;
 }
 
+static void commit_player_name(void)
+{
+    char name[PLAYER_NAME_MAX];
+
+    if (g_state.player_name_len == 0) {
+        strncpy(name, "Jugador", sizeof(name) - 1);
+        name[sizeof(name) - 1] = '\0';
+    } else {
+        memcpy(name, g_state.player_name_input, (size_t)g_state.player_name_len);
+        name[g_state.player_name_len] = '\0';
+    }
+
+    scores_commit_with_name(name, g_state.last_score);
+}
+
 static bool handle_game_over_input(int ch)
 {
-    if (ch == '\n') {
-        g_state.game_status = STATUS_RUNNING;
-        g_state.current_screen = SCREEN_MENU;
-        g_state.menu_index = 0;
+    if (g_state.score_saved) {
+        if (ch == '\n' || ch == 27) {
+            g_state.game_status = STATUS_RUNNING;
+            g_state.current_screen = SCREEN_MENU;
+            g_state.menu_index = 0;
+        }
         return true;
     }
+
+    if (ch == '\n') {
+        commit_player_name();
+        return true;
+    }
+
+    if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+        if (g_state.player_name_len > 0)
+            g_state.player_name_input[--g_state.player_name_len] = '\0';
+        return true;
+    }
+
+    if (ch >= 32 && ch < 127 &&
+        g_state.player_name_len < PLAYER_NAME_MAX - 1)
+    {
+        g_state.player_name_input[g_state.player_name_len++] = (char)ch;
+        g_state.player_name_input[g_state.player_name_len]   = '\0';
+    }
+
     return true;
 }
 

@@ -7,6 +7,7 @@
 #include "board.h"
 #include "game_state.h"
 #include "game_config.h"
+#include "scores.h"
 #include "sync.h"
 
 #include <ncurses.h>
@@ -177,6 +178,8 @@ static int color_pair_for(int color_idx)
 void init_board(void)
 {
     srand((unsigned int)time(NULL));
+
+    scores_reset_match_flag();
 
     pthread_mutex_lock(&board_mutex);
 

@@ -80,6 +80,11 @@ typedef enum {
 #define MODE_ITEM_COUNT 2
 
 /**
+ * @brief Longitud máxima del nombre del jugador (incluye '\0').
+ */
+#define PLAYER_NAME_MAX 24
+
+/**
  * @brief Pantallas de la aplicación.
  */
 typedef enum {
@@ -201,6 +206,26 @@ typedef struct {
      * @brief Puntaje de la última partida finalizada.
      */
     int last_score;
+
+    /**
+     * @brief Nombre del jugador en la última partida guardada.
+     */
+    char last_player_name[PLAYER_NAME_MAX];
+
+    /**
+     * @brief Buffer de nombre al finalizar partida (pantalla GAME_OVER).
+     */
+    char player_name_input[PLAYER_NAME_MAX];
+
+    /**
+     * @brief Longitud actual de player_name_input.
+     */
+    int player_name_len;
+
+    /**
+     * @brief true si el puntaje ya se guardó con nombre en scores.txt.
+     */
+    bool score_saved;
 
 } GameState;
 
