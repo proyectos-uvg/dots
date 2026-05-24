@@ -245,37 +245,41 @@ static void render_game_over_screen(void)
     const int col = content_left();
     int row     = 1;
 
-    draw_title("=== FIN DE PARTIDA ===", row);
+    draw_title("=== GAME OVER ===", row);
     row += 2;
-
-    row = draw_body_fmt(row, col, "Puntaje final : %d / %d",
-                        g_state.last_score, g_state.score_goal);
 
     if (g_state.game_status == STATUS_WON) {
         attron(COLOR_PAIR(3) | A_BOLD);
-        row = draw_body_line(row, col, "*** GANASTE! ***");
+        row = draw_body_line(row, col, "  Victory");
         attroff(COLOR_PAIR(3) | A_BOLD);
     } else {
         attron(COLOR_PAIR(1) | A_BOLD);
-        row = draw_body_line(row, col, "*** PERDISTE! ***");
+        row = draw_body_line(row, col, "  Defeat");
         attroff(COLOR_PAIR(1) | A_BOLD);
     }
 
     row++;
+    row = draw_body_fmt(row, col, "  Final score      : %d / %d",
+                        g_state.last_score, g_state.score_goal);
+    row = draw_body_fmt(row, col, "  Remaining moves  : %d",
+                        g_state.moves_remaining);
+
+    row++;
 
     if (!g_state.score_saved) {
-        row = draw_section_header(row, col, "INGRESA TU NOMBRE");
-        row = draw_body_line(row, col, "  Escribe tu nombre y presiona ENTER:");
+        row = draw_section_header(row, col, "SAVE SCORE");
+        row = draw_body_line(row, col, "  Enter your name (ENTER to save):");
         row = draw_body_fmt(row, col, "  > %s_", g_state.player_name_input);
-
-        const char* hint = "BACKSPACE = borrar | ENTER = guardar";
-        attron(A_DIM);
-        mvaddstr(row + 1, col, hint);
-        attroff(A_DIM);
+        row++;
     } else {
-        row = draw_body_fmt(row, col, "  Guardado como: %s", g_state.last_player_name);
-        row = draw_body_line(row, col, "  Presiona ENTER para volver al menu");
+        row = draw_body_fmt(row, col, "  Saved as: %s", g_state.last_player_name);
+        row++;
     }
+
+    row = draw_section_header(row, col, "OPTIONS");
+    row = draw_body_line(row, col, "  R = Restart game");
+    row = draw_body_line(row, col, "  M = Return to main menu");
+    row = draw_body_line(row, col, "  Q = Quit");
 }
 
 void render_screen(void)

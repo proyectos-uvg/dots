@@ -8,6 +8,7 @@
 #include "board.h"
 #include "screens.h"
 #include "scores.h"
+#include "game_reset.h"
 
 #include <ncurses.h>
 #include <vector>
@@ -85,7 +86,7 @@ static void remove_selection(void)
     current_color = -1;
 }
 
-static void reset_playing_cursor(void)
+void input_reset_playing_state(void)
 {
     cursor_row = 0;
     cursor_col = 0;
@@ -102,7 +103,7 @@ static void start_game_from_mode_select(void)
 {
     g_state.game_mode = mode_from_index(g_state.mode_index);
     init_board();
-    reset_playing_cursor();
+    input_reset_playing_state();
     g_state.current_screen = SCREEN_PLAYING;
 }
 
@@ -251,6 +252,9 @@ static void commit_player_name(void)
 {
     char name[PLAYER_NAME_MAX];
 
+    if (g_state.score_saved)
+        return;
+
     if (g_state.player_name_len == 0) {
         strncpy(name, "Jugador", sizeof(name) - 1);
         name[sizeof(name) - 1] = '\0';
@@ -262,29 +266,59 @@ static void commit_player_name(void)
     scores_commit_with_name(name, g_state.last_score);
 }
 
+static void ensure_score_saved(void)
+{
+    if (!g_state.score_saved)
+        commit_player_name();
+}
+
 static bool handle_game_over_input(int ch)
 {
-    if (g_state.score_saved) {
-        if (ch == '\n' || ch == 27) {
-            g_state.game_status = STATUS_RUNNING;
-            g_state.current_screen = SCREEN_MENU;
-            g_state.menu_index = 0;
-        }
-        return true;
-    }
+    switch (ch) {
 
-    if (ch == '\n') {
-        commit_player_name();
+    case 'r':
+    case 'R':
+        ensure_score_saved();
+        reset_game(g_state);
         return true;
-    }
 
-    if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
-        if (g_state.player_name_len > 0)
+    case 'm':
+    case 'M':
+        ensure_score_saved();
+        input_reset_playing_state();
+        scores_reset_match_flag();
+        g_state.game_status    = STATUS_RUNNING;
+        g_state.current_screen = SCREEN_MENU;
+        g_state.menu_index     = 0;
+        return true;
+
+    case 'q':
+    case 'Q':
+        ensure_score_saved();
+        g_state.current_screen = SCREEN_EXIT;
+        return false;
+
+  case '\n':
+        if (!g_state.score_saved)
+            commit_player_name();
+        return true;
+
+    case KEY_BACKSPACE:
+    case 127:
+    case 8:
+        if (!g_state.score_saved && g_state.player_name_len > 0)
             g_state.player_name_input[--g_state.player_name_len] = '\0';
         return true;
+
+    default:
+        break;
     }
 
-    if (ch >= 32 && ch < 127 &&
+    if (!g_state.score_saved &&
+        ch >= 32 && ch < 127 &&
+        ch != 'r' && ch != 'R' &&
+        ch != 'm' && ch != 'M' &&
+        ch != 'q' && ch != 'Q' &&
         g_state.player_name_len < PLAYER_NAME_MAX - 1)
     {
         g_state.player_name_input[g_state.player_name_len++] = (char)ch;

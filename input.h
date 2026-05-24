@@ -39,4 +39,11 @@ bool already_selected(const std::vector<SelectedPoint>& path,
                       int row,
                       int col);
 
+/**
+ * @brief Limpia cursor, cadena de selección y color activo.
+ *
+ * @note Debe llamarse al reiniciar o abandonar una partida.
+ */
+void input_reset_playing_state(void);
+
 #endif
