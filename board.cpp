@@ -41,6 +41,16 @@
 #define PAIR_MAGENTA 5
 
 /**
+ * @brief Identificador del par de color cian.
+ */
+#define PAIR_CYAN 7
+
+/**
+ * @brief Identificador del par de color blanco.
+ */
+#define PAIR_WHITE 8
+
+/**
  * @brief Par de color utilizado para títulos y encabezados.
  */
 #define PAIR_TITLE 6
@@ -125,6 +135,8 @@ void init_display(void)
     init_pair(PAIR_GREEN, COLOR_GREEN, COLOR_BLACK);
     init_pair(PAIR_YELLOW, COLOR_YELLOW, COLOR_BLACK);
     init_pair(PAIR_MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(PAIR_CYAN, COLOR_CYAN, COLOR_BLACK);
+    init_pair(PAIR_WHITE, COLOR_WHITE, COLOR_BLACK);
     init_pair(PAIR_TITLE, COLOR_WHITE, COLOR_BLACK);
 }
 
@@ -155,6 +167,12 @@ static int color_pair_for(int color_idx)
 
     case COLOR_IDX_MAGENTA:
         return PAIR_MAGENTA;
+
+    case COLOR_IDX_CYAN:
+        return PAIR_CYAN;
+
+    case COLOR_IDX_WHITE:
+        return PAIR_WHITE;
 
     default:
         return PAIR_TITLE;
@@ -190,7 +208,7 @@ void init_board(void)
 
     for (int r = 0; r < BOARD_SIZE; r++) {
         for (int c = 0; c < BOARD_SIZE; c++) {
-            g_state.board[r][c].color = rand() % NUM_COLORS;
+            g_state.board[r][c].color = rand() % g_state.num_colors;
             if (g_state.special_enabled && rand() % 10 == 0)
                 g_state.board[r][c].type = (CellType)(1 + rand() % 3);
             else

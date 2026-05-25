@@ -14,7 +14,12 @@
 /**
  * @brief Cantidad total de colores disponibles.
  */
-#define NUM_COLORS 5
+#define NUM_COLORS 7
+
+/**
+ * @brief Cantidad mínima de colores seleccionable.
+ */
+#define MIN_COLORS 3
 
 /**
  * @brief Cantidad inicial de movimientos por partida.
@@ -70,6 +75,16 @@ typedef enum {
 #define COLOR_IDX_MAGENTA 4
 
 /**
+ * @brief Índice lógico del color cian.
+ */
+#define COLOR_IDX_CYAN 5
+
+/**
+ * @brief Índice lógico del color blanco.
+ */
+#define COLOR_IDX_WHITE 6
+
+/**
  * @brief Cantidad de opciones en el menú principal.
  */
 #define MENU_ITEM_COUNT 4
@@ -78,6 +93,13 @@ typedef enum {
  * @brief Cantidad de opciones en la pantalla de selección de modo.
  */
 #define MODE_ITEM_COUNT 2
+
+/**
+ * @brief Total de ítems navegables en la pantalla de selección de modo.
+ *
+ * 0,1 = modos  |  2 = checkbox specials  |  3 = selector num_colors
+ */
+#define MODE_SCREEN_TOTAL 4
 
 /**
  * @brief Longitud máxima del nombre del jugador (incluye '\0').
@@ -244,6 +266,13 @@ typedef struct {
      * @brief Si es true, el tablero incluye celdas especiales.
      */
     bool special_enabled;
+
+    /**
+     * @brief Cantidad de colores activos en la partida (MIN_COLORS..NUM_COLORS).
+     *
+     * Asignado en init_board() según el modo: SLOW=4, FAST=6.
+     */
+    int num_colors;
 
 } GameState;
 

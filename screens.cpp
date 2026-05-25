@@ -197,10 +197,18 @@ static void render_mode_select_screen(void)
         mvprintw(check_row, start_col, "[%s] Special elements", mark);
     }
 
-    mvprintw(check_row + 2, start_col,
-             "Flechas = navegar | ENTER = confirmar | ESPACIO = marcar");
-    mvprintw(check_row + 4, start_col,
-             "ESC o B = volver al menu");
+    int color_row = check_row + 1;
+
+    if (g_state.mode_index == 3) {
+        attron(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
+        mvprintw(color_row, start_col, "Colores: < %d >", g_state.num_colors);
+        attroff(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
+    } else {
+        mvprintw(color_row, start_col, "Colores:   %d  ", g_state.num_colors);
+    }
+
+    mvprintw(color_row + 2, start_col, "Flechas = navegar | < > = ajustar colores | ESPACIO/ENTER = marcar");
+    mvprintw(color_row + 4, start_col, "ESC o B = volver al menu");
 }
 
 static void render_scores_screen(void)

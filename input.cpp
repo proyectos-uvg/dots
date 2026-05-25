@@ -123,7 +123,7 @@ static void draw_playing_overlays(void)
 {
     for (const auto& sp : selection) {
         int color = g_state.board[sp.row][sp.col].color;
-        if (color >= 0 && color < NUM_COLORS) {
+        if (color >= 0 && color < g_state.num_colors) {
             attron(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
             mvaddch(6 + sp.row, 6 + sp.col * 4, ACS_BLOCK);
             attroff(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
@@ -220,8 +220,18 @@ static bool handle_mode_select_input(int ch)
         return true;
 
     case KEY_DOWN:
-        if (g_state.mode_index < 2)
+        if (g_state.mode_index < MODE_SCREEN_TOTAL - 1)
             g_state.mode_index++;
+        return true;
+
+    case KEY_LEFT:
+        if (g_state.mode_index == 3 && g_state.num_colors > MIN_COLORS)
+            g_state.num_colors--;
+        return true;
+
+    case KEY_RIGHT:
+        if (g_state.mode_index == 3 && g_state.num_colors < NUM_COLORS)
+            g_state.num_colors++;
         return true;
 
     case ' ':
@@ -232,7 +242,7 @@ static bool handle_mode_select_input(int ch)
     case '\n':
         if (g_state.mode_index == 2)
             g_state.special_enabled = !g_state.special_enabled;
-        else
+        else if (g_state.mode_index < 2)
             start_game_from_mode_select();
         return true;
 

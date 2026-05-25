@@ -97,7 +97,7 @@ void apply_gravity_col(int col) {
 void fill_column(int col) {
     for (int r = 0; r < BOARD_SIZE; r++) {
         if (g_state.board[r][col].color == -1) {
-            g_state.board[r][col].color = rand() % NUM_COLORS;
+            g_state.board[r][col].color = rand() % g_state.num_colors;
             if (g_state.special_enabled && rand() % 10 == 0)
                 g_state.board[r][col].type = (CellType)(1 + rand() % 3);
             else

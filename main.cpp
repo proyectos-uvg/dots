@@ -100,6 +100,7 @@ int main(void)
     g_state.player_name_len     = 0;
     g_state.score_saved         = false;
     g_state.special_enabled     = false;
+    g_state.num_colors          = 4;
     g_state.game_status         = STATUS_RUNNING;
 
     pthread_mutex_lock(&render_mutex);
