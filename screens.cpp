@@ -143,7 +143,7 @@ static void render_instructions_screen(void)
     row++;
     row = draw_section_header(row, col, "VICTORIA Y DERROTA");
     row = draw_body_line(row, col,
-        "  Ganas al llegar a la meta: Lento 500/30 movs | Rapido 800/20.");
+        "  Ganas al llegar a la meta: Lento 5000/30 movs | Rapido 8000/20.");
     row = draw_body_line(row, col,
         "  Pierdes si se acaban los movimientos o abandonas con Q.");
 
@@ -186,9 +186,20 @@ static void render_mode_select_screen(void)
         draw_menu_item(start_row + i * 2, start_col, modes[i],
                        i == g_state.mode_index);
 
-    mvprintw(start_row + MODE_ITEM_COUNT * 2 + 2, start_col,
-             "Flechas = navegar | ENTER = seleccionar");
-    mvprintw(start_row + MODE_ITEM_COUNT * 2 + 4, start_col,
+    int check_row = start_row + MODE_ITEM_COUNT * 2 + 1;
+    const char* mark = g_state.special_enabled ? "X" : " ";
+
+    if (g_state.mode_index == 2) {
+        attron(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
+        mvprintw(check_row, start_col, "> [%s] Special elements <", mark);
+        attroff(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
+    } else {
+        mvprintw(check_row, start_col, "[%s] Special elements", mark);
+    }
+
+    mvprintw(check_row + 2, start_col,
+             "Flechas = navegar | ENTER = confirmar | ESPACIO = marcar");
+    mvprintw(check_row + 4, start_col,
              "ESC o B = volver al menu");
 }
 

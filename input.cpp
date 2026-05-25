@@ -69,13 +69,13 @@ static void remove_selection(void)
     if (cycle) {
         for (int r = 0; r < BOARD_SIZE; r++) {
             for (int c = 0; c < BOARD_SIZE; c++) {
-                if (g_state.board[r][c] == target_color)
-                    g_state.board[r][c] = -1;
+                if (g_state.board[r][c].color == target_color)
+                    g_state.board[r][c].color = -1;
             }
         }
     } else {
         for (const auto& p : selection)
-            g_state.board[p.row][p.col] = -1;
+            g_state.board[p.row][p.col].color = -1;
     }
 
     g_state.moves_remaining--;
@@ -122,7 +122,7 @@ static void go_to_game_over(void)
 static void draw_playing_overlays(void)
 {
     for (const auto& sp : selection) {
-        int color = g_state.board[sp.row][sp.col];
+        int color = g_state.board[sp.row][sp.col].color;
         if (color >= 0 && color < NUM_COLORS) {
             attron(COLOR_PAIR(color + 1) | A_BOLD | A_REVERSE);
             mvaddch(6 + sp.row, 6 + sp.col * 4, ACS_BLOCK);
@@ -220,12 +220,20 @@ static bool handle_mode_select_input(int ch)
         return true;
 
     case KEY_DOWN:
-        if (g_state.mode_index < MODE_ITEM_COUNT - 1)
+        if (g_state.mode_index < 2)
             g_state.mode_index++;
         return true;
 
+    case ' ':
+        if (g_state.mode_index == 2)
+            g_state.special_enabled = !g_state.special_enabled;
+        return true;
+
     case '\n':
-        start_game_from_mode_select();
+        if (g_state.mode_index == 2)
+            g_state.special_enabled = !g_state.special_enabled;
+        else
+            start_game_from_mode_select();
         return true;
 
     case 27:
@@ -375,7 +383,7 @@ static bool handle_playing_input(int ch)
     case ' ':
     {
         pthread_mutex_lock(&board_mutex);
-        int color = g_state.board[cursor_row][cursor_col];
+        int color = g_state.board[cursor_row][cursor_col].color;
         pthread_mutex_unlock(&board_mutex);
 
         if (color == -1)

@@ -23,11 +23,11 @@ int get_score_goal(GameMode mode)
     switch (mode) {
 
     case FAST:
-        return 800;
+        return 8000;
 
     case SLOW:
     default:
-        return 500;
+        return 5000;
     }
 }
 

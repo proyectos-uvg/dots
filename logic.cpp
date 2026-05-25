@@ -71,9 +71,10 @@ void apply_gravity_col(int col) {
         moved = false;
 
         for (int r = BOARD_SIZE - 2; r >= 0; r--) {
-            if (g_state.board[r][col] != -1 && g_state.board[r + 1][col] == -1) {
+            if (g_state.board[r][col].color != -1 && g_state.board[r + 1][col].color == -1) {
                 g_state.board[r + 1][col] = g_state.board[r][col];
-                g_state.board[r][col] = -1;
+                g_state.board[r][col].color = -1;
+                g_state.board[r][col].type  = NORMAL;
                 moved = true;
             }
         }
@@ -93,12 +94,15 @@ void apply_gravity_col(int col) {
 /* fill_column                                                          */
 /* ------------------------------------------------------------------ */
  
-void fill_column(int col)
-{
-    for (int r = 0; r < BOARD_SIZE; r++)
-    {
-        if (g_state.board[r][col] == -1)
-            g_state.board[r][col] = rand() % NUM_COLORS;
+void fill_column(int col) {
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        if (g_state.board[r][col].color == -1) {
+            g_state.board[r][col].color = rand() % NUM_COLORS;
+            if (g_state.special_enabled && rand() % 10 == 0)
+                g_state.board[r][col].type = (CellType)(1 + rand() % 3);
+            else
+                g_state.board[r][col].type = NORMAL;
+        }
     }
 }
  
@@ -142,60 +146,91 @@ void check_game_over(void)
  *   4. Evaluar fin de partida.
  */
 void process_move(const std::vector<SelectedPoint>& path,
-                  int color,
-                  bool is_cycle)
-{
+                  bool is_cycle) {
     pthread_mutex_lock(&board_mutex);
- 
-    /* --- Contar huecos totales para el puntaje -------------------- */
- 
-    /*
-     * remove_selection() ya marcó todo lo que debe borrarse.
-     * Contamos los -1 del tablero para saber cuántos puntos
-     * se eliminaron en total (útil para el bono de ciclo).
-     */
+
+    /* Expandir efectos de celdas especiales */
+
+    bool has_multiplier = false;
+    bool changed = true;
+
+    while (changed) {
+        changed = false;
+
+        for (int r = 0; r < BOARD_SIZE; r++) {
+            for (int c = 0; c < BOARD_SIZE; c++) {
+                if (g_state.board[r][c].color != -1)
+                    continue;
+
+                CellType t = g_state.board[r][c].type;
+                if (t == NORMAL)
+                    continue;
+
+                g_state.board[r][c].type = NORMAL;
+                changed = true;
+
+                if (t == BOMB) {
+                    for (int dr = -1; dr <= 1; dr++)
+                        for (int dc = -1; dc <= 1; dc++) {
+                            int nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < BOARD_SIZE &&
+                                nc >= 0 && nc < BOARD_SIZE)
+                                g_state.board[nr][nc].color = -1;
+                        }
+                }
+                else if (t == CROSS) {
+                    for (int i = 0; i < BOARD_SIZE; i++) {
+                        g_state.board[r][i].color = -1;
+                        g_state.board[i][c].color = -1;
+                    }
+                }
+                else if (t == MULTIPLIER) {
+                    has_multiplier = true;
+                }
+            }
+        }
+    }
+
+    /* Contar huecos y columnas afectadas */
+
     int total_removed = 0;
     bool affected[BOARD_SIZE] = {};
- 
-    for (int r = 0; r < BOARD_SIZE; r++)
-    {
-        for (int c = 0; c < BOARD_SIZE; c++)
-        {
-            if (g_state.board[r][c] == -1)
-            {
+
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (g_state.board[r][c].color == -1) {
                 total_removed++;
                 affected[c] = true;
             }
         }
     }
- 
+
     int chain_len = path.empty() ? total_removed : (int)path.size();
-    int extras    = (is_cycle) ? (total_removed - chain_len) : 0;
+    int extras = (is_cycle) ? (total_removed - chain_len) : 0;
     if (extras < 0) extras = 0;
- 
-    /* --- Acumular puntaje ----------------------------------------- */
- 
+
+    /* Calcular puntaje */
+
     int gained = calculate_score(chain_len, is_cycle, extras);
- 
+    if (has_multiplier) gained *= 2;
+
     pthread_mutex_lock(&score_mutex);
     g_state.score += gained;
     pthread_mutex_unlock(&score_mutex);
- 
-    /* --- Gravedad y relleno --------------------------------------- */
- 
-    for (int c = 0; c < BOARD_SIZE; c++)
-    {
-        if (affected[c])
-        {
+
+    /* Gravedad y relleno */
+
+    for (int c = 0; c < BOARD_SIZE; c++) {
+        if (affected[c]) {
             apply_gravity_col(c);
             fill_column(c);
         }
     }
- 
-    /* --- Fin de partida ------------------------------------------ */
- 
+
+    /* Fin de partida */
+
     check_game_over();
- 
+
     pthread_mutex_unlock(&board_mutex);
 }
  
@@ -248,7 +283,7 @@ void* game_loop_thread(void* arg)
         pthread_mutex_lock(&board_mutex);
         for (int r = 0; r < BOARD_SIZE && !has_holes; r++)
             for (int c = 0; c < BOARD_SIZE && !has_holes; c++)
-                if (g_state.board[r][c] == -1)
+                if (g_state.board[r][c].color == -1)
                     has_holes = true;
         pthread_mutex_unlock(&board_mutex);
  
@@ -261,7 +296,7 @@ void* game_loop_thread(void* arg)
          * chain_len se recalcula desde total_removed en ese caso.
          */
         std::vector<SelectedPoint> empty_path;
-        process_move(empty_path, -1, false);
+        process_move(empty_path, false);
 
         pthread_mutex_lock(&render_mutex);
         if (g_state.current_screen == SCREEN_GAME_OVER) {

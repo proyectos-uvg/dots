@@ -188,11 +188,13 @@ void init_board(void)
     g_state.score_goal      = get_score_goal(g_state.game_mode);
     g_state.moves_remaining = get_moves_limit(g_state.game_mode);
 
-    for (int r = 0; r < BOARD_SIZE; r++)
-    {
-        for (int c = 0; c < BOARD_SIZE; c++)
-        {
-            g_state.board[r][c] = rand() % NUM_COLORS;
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            g_state.board[r][c].color = rand() % NUM_COLORS;
+            if (g_state.special_enabled && rand() % 10 == 0)
+                g_state.board[r][c].type = (CellType)(1 + rand() % 3);
+            else
+                g_state.board[r][c].type = NORMAL;
         }
     }
 
@@ -246,15 +248,28 @@ void render_playing(void)
                  "%d |",
                  r + 1);
 
-        for (int c = 0; c < BOARD_SIZE; c++)
-        {
-
-            if (g_state.board[r][c] == -1) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (g_state.board[r][c].color == -1) {
                 mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ' ');
             } else {
-                int pair = color_pair_for(g_state.board[r][c]);
+                int pair = color_pair_for(g_state.board[r][c].color);
                 attron(COLOR_PAIR(pair) | A_BOLD);
-                mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ACS_BLOCK);
+                chtype ch;
+                switch (g_state.board[r][c].type) {
+                    case BOMB:
+                        ch = '*';
+                        break;
+                    case CROSS:
+                        ch = '+';
+                        break;
+                    case MULTIPLIER:
+                        ch = '%';
+                        break;
+                    default:
+                        ch = ACS_DIAMOND;
+                        break;
+                }
+                mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ch);
                 attroff(COLOR_PAIR(pair) | A_BOLD);
             }
         }

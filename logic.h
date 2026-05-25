@@ -99,7 +99,6 @@ void check_game_over(void);
  * @note Adquiere y libera board_mutex internamente.
  */
 void process_move(const std::vector<SelectedPoint>& path,
-                  int color,
                   bool is_cycle);
  
 /**

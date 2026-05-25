@@ -9,7 +9,7 @@
 /**
  * @brief Dimensión del tablero del juego.
  */
-#define BOARD_SIZE 6
+#define BOARD_SIZE 10
 
 /**
  * @brief Cantidad total de colores disponibles.
@@ -98,6 +98,19 @@ typedef enum {
 } ScreenState;
 
 /**
+ * @brief Tipo de celda especial del tablero.
+ */
+typedef enum { NORMAL, BOMB, CROSS, MULTIPLIER } CellType;
+
+/**
+ * @brief Celda del tablero con color y tipo.
+ */
+typedef struct {
+    int color;
+    CellType type;
+} Cell;
+
+/**
  * @brief Representa un punto individual dentro del tablero.
  *
  * Cada punto posee:
@@ -140,7 +153,7 @@ typedef struct {
      *
      * @note Debe protegerse mediante board_mutex.
      */
-    int board[BOARD_SIZE][BOARD_SIZE];
+    Cell board[BOARD_SIZE][BOARD_SIZE];
 
     /**
      * @brief Puntaje acumulado del jugador.
@@ -226,6 +239,11 @@ typedef struct {
      * @brief true si el puntaje ya se guardó con nombre en scores.txt.
      */
     bool score_saved;
+
+    /**
+     * @brief Si es true, el tablero incluye celdas especiales.
+     */
+    bool special_enabled;
 
 } GameState;
 
