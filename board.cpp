@@ -205,6 +205,18 @@ void init_board(void)
     g_state.game_status     = STATUS_RUNNING;
     g_state.score_goal      = get_score_goal(g_state.game_mode);
     g_state.moves_remaining = get_moves_limit(g_state.game_mode);
+    g_state.goal_type       = GOAL_SCORE;
+
+    if (g_state.challenge_mode) {
+        const LevelConfig& lv = LEVELS[g_state.current_level - 1];
+        g_state.num_colors      = lv.num_colors;
+        g_state.score_goal      = lv.score_goal;
+        g_state.moves_remaining = lv.moves_limit;
+        g_state.goal_type       = lv.goal_type;
+        g_state.color_target    = lv.color_target;
+        g_state.cycles_target   = lv.cycles_target;
+        g_state.color_goal      = lv.color_goal;
+    }
 
     for (int r = 0; r < BOARD_SIZE; r++) {
         for (int c = 0; c < BOARD_SIZE; c++) {
@@ -213,6 +225,20 @@ void init_board(void)
                 g_state.board[r][c].type = (CellType)(1 + rand() % 3);
             else
                 g_state.board[r][c].type = NORMAL;
+        }
+    }
+
+    if (g_state.challenge_mode) {
+        const LevelConfig& lv = LEVELS[g_state.current_level - 1];
+        int placed = 0;
+        while (placed < lv.obstacle_count) {
+            int r = rand() % BOARD_SIZE;
+            int c = rand() % BOARD_SIZE;
+            if (g_state.board[r][c].type != OBSTACLE) {
+                g_state.board[r][c].color = -1;
+                g_state.board[r][c].type  = OBSTACLE;
+                placed++;
+            }
         }
     }
 
@@ -267,7 +293,11 @@ void render_playing(void)
                  r + 1);
 
         for (int c = 0; c < BOARD_SIZE; c++) {
-            if (g_state.board[r][c].color == -1) {
+            if (g_state.board[r][c].type == OBSTACLE) {
+                attron(A_DIM);
+                mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, '#');
+                attroff(A_DIM);
+            } else if (g_state.board[r][c].color == -1) {
                 mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ' ');
             } else {
                 int pair = color_pair_for(g_state.board[r][c].color);
@@ -284,7 +314,7 @@ void render_playing(void)
                         ch = '%';
                         break;
                     default:
-                        ch = ACS_DIAMOND;
+                        ch = ACS_DIAMOND; 
                         break;
                 }
                 mvaddch(BOARD_ROW + r, BOARD_COL + c * CELL_W, ch);
@@ -294,6 +324,28 @@ void render_playing(void)
     }
 
     pthread_mutex_unlock(&board_mutex);
+
+    if (g_state.challenge_mode) {
+        int hud_col = BOARD_COL + BOARD_SIZE * CELL_W + 4;
+        attron(A_BOLD | COLOR_PAIR(PAIR_TITLE));
+        mvprintw(3, hud_col, "Nivel: %d/%d", g_state.current_level, NUM_LEVELS);
+        attroff(A_BOLD | COLOR_PAIR(PAIR_TITLE));
+        switch (g_state.goal_type) {
+        case GOAL_SCORE:
+            mvprintw(4, hud_col, "Meta pts: %d/%d", g_state.score, g_state.score_goal);
+            break;
+        case GOAL_COLOR_ELIM:
+            mvprintw(4, hud_col, "Elim:  %d/%d", g_state.color_eliminated, g_state.color_goal);
+            break;
+        case GOAL_CYCLES:
+            mvprintw(4, hud_col, "Ciclos: %d/%d", g_state.cycles_formed, g_state.cycles_target);
+            break;
+        case GOAL_COMBO:
+            mvprintw(4, hud_col, "Pts: %d/%d", g_state.score, g_state.score_goal);
+            mvprintw(5, hud_col, "Ciclos: %d/%d", g_state.cycles_formed, g_state.cycles_target);
+            break;
+        }
+    }
 
     int status_row = BOARD_ROW + BOARD_SIZE + 2;
 

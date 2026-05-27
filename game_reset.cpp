@@ -18,6 +18,12 @@ void reset_game(GameState& state)
     state.player_name_input[0] = '\0';
     state.score_saved          = false;
 
+    if (state.challenge_mode) {
+        state.cycles_formed    = 0;
+        state.color_eliminated = 0;
+        state.pending_cycle    = false;
+    }
+
     init_board();
 
     pthread_mutex_lock(&board_mutex);

@@ -102,6 +102,15 @@ int main(void)
     g_state.special_enabled     = false;
     g_state.num_colors          = 4;
     g_state.game_status         = STATUS_RUNNING;
+    g_state.challenge_mode      = false;
+    g_state.current_level       = 1;
+    g_state.goal_type           = 0;
+    g_state.cycles_formed       = 0;
+    g_state.cycles_target       = 0;
+    g_state.color_goal          = 0;
+    g_state.color_eliminated    = 0;
+    g_state.color_target        = -1;
+    g_state.pending_cycle       = false;
 
     pthread_mutex_lock(&render_mutex);
     render_screen();

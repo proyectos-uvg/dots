@@ -12,11 +12,11 @@
  */
  
 #include "logic.h"
+#include "game_config.h"
 #include "sync.h"
 #include "board.h"
 #include "screens.h"
 #include "game_state.h"
-#include "game_config.h"
 #include "scores.h"
 
 #include <ncurses.h>
@@ -71,7 +71,10 @@ void apply_gravity_col(int col) {
         moved = false;
 
         for (int r = BOARD_SIZE - 2; r >= 0; r--) {
-            if (g_state.board[r][col].color != -1 && g_state.board[r + 1][col].color == -1) {
+            if (g_state.board[r][col].color != -1 &&
+                g_state.board[r + 1][col].color == -1 &&
+                g_state.board[r + 1][col].type != OBSTACLE)
+            {
                 g_state.board[r + 1][col] = g_state.board[r][col];
                 g_state.board[r][col].color = -1;
                 g_state.board[r][col].type  = NORMAL;
@@ -96,7 +99,7 @@ void apply_gravity_col(int col) {
  
 void fill_column(int col) {
     for (int r = 0; r < BOARD_SIZE; r++) {
-        if (g_state.board[r][col].color == -1) {
+        if (g_state.board[r][col].color == -1 && g_state.board[r][col].type != OBSTACLE) {
             g_state.board[r][col].color = rand() % g_state.num_colors;
             if (g_state.special_enabled && rand() % 10 == 0)
                 g_state.board[r][col].type = (CellType)(1 + rand() % 3);
@@ -112,16 +115,33 @@ void fill_column(int col) {
  
 void check_game_over(void)
 {
-    if (g_state.score >= g_state.score_goal)
-    {
+    bool won = false;
+
+    if (g_state.challenge_mode) {
+        switch (g_state.goal_type) {
+        case GOAL_SCORE:
+            won = (g_state.score >= g_state.score_goal);
+            break;
+        case GOAL_COLOR_ELIM:
+            won = (g_state.color_eliminated >= g_state.color_goal);
+            break;
+        case GOAL_CYCLES:
+            won = (g_state.cycles_formed >= g_state.cycles_target);
+            break;
+        case GOAL_COMBO:
+            won = (g_state.score >= g_state.score_goal &&
+                   g_state.cycles_formed >= g_state.cycles_target);
+            break;
+        }
+    } else {
+        won = (g_state.score >= g_state.score_goal);
+    }
+
+    if (won) {
         g_state.game_status = STATUS_WON;
-    }
-    else if (g_state.moves_remaining <= 0)
-    {
+    } else if (g_state.moves_remaining <= 0) {
         g_state.game_status = STATUS_LOST;
-    }
-    else
-    {
+    } else {
         return;
     }
 
@@ -149,6 +169,9 @@ void process_move(const std::vector<SelectedPoint>& path,
                   bool is_cycle) {
     pthread_mutex_lock(&board_mutex);
 
+    if (is_cycle && g_state.challenge_mode)
+        g_state.cycles_formed++;
+
     /* Expandir efectos de celdas especiales */
 
     bool has_multiplier = false;
@@ -163,7 +186,7 @@ void process_move(const std::vector<SelectedPoint>& path,
                     continue;
 
                 CellType t = g_state.board[r][c].type;
-                if (t == NORMAL)
+                if (t == NORMAL || t == OBSTACLE)
                     continue;
 
                 g_state.board[r][c].type = NORMAL;
@@ -174,14 +197,35 @@ void process_move(const std::vector<SelectedPoint>& path,
                         for (int dc = -1; dc <= 1; dc++) {
                             int nr = r + dr, nc = c + dc;
                             if (nr >= 0 && nr < BOARD_SIZE &&
-                                nc >= 0 && nc < BOARD_SIZE)
+                                nc >= 0 && nc < BOARD_SIZE &&
+                                g_state.board[nr][nc].type != OBSTACLE)
+                            {
+                                if (g_state.challenge_mode &&
+                                    g_state.goal_type == GOAL_COLOR_ELIM &&
+                                    g_state.board[nr][nc].color == g_state.color_target)
+                                    g_state.color_eliminated++;
                                 g_state.board[nr][nc].color = -1;
+                            }
                         }
                 }
                 else if (t == CROSS) {
                     for (int i = 0; i < BOARD_SIZE; i++) {
-                        g_state.board[r][i].color = -1;
-                        g_state.board[i][c].color = -1;
+                        if (g_state.board[r][i].type != OBSTACLE) {
+                            if (g_state.challenge_mode &&
+                                g_state.goal_type == GOAL_COLOR_ELIM &&
+                                g_state.board[r][i].color == g_state.color_target)
+                                g_state.color_eliminated++;
+                            g_state.board[r][i].color = -1;
+                        }
+                    }
+                    for (int i = 0; i < BOARD_SIZE; i++) {
+                        if (g_state.board[i][c].type != OBSTACLE) {
+                            if (g_state.challenge_mode &&
+                                g_state.goal_type == GOAL_COLOR_ELIM &&
+                                g_state.board[i][c].color == g_state.color_target)
+                                g_state.color_eliminated++;
+                            g_state.board[i][c].color = -1;
+                        }
                     }
                 }
                 else if (t == MULTIPLIER) {
@@ -191,14 +235,14 @@ void process_move(const std::vector<SelectedPoint>& path,
         }
     }
 
-    /* Contar huecos y columnas afectadas */
+    /* Contar huecos y columnas afectadas (excluir obstáculos) */
 
     int total_removed = 0;
     bool affected[BOARD_SIZE] = {};
 
     for (int r = 0; r < BOARD_SIZE; r++) {
         for (int c = 0; c < BOARD_SIZE; c++) {
-            if (g_state.board[r][c].color == -1) {
+            if (g_state.board[r][c].color == -1 && g_state.board[r][c].type != OBSTACLE) {
                 total_removed++;
                 affected[c] = true;
             }
@@ -276,27 +320,24 @@ void* game_loop_thread(void* arg)
         }
  
         /*
-         * Verificar si hay huecos que procesar.
-         * (Evita actuar sobre broadcasts que no corresponden a jugadas.)
+         * Verificar huecos y leer pending_cycle atomicamente bajo board_mutex.
          */
         bool has_holes = false;
+        bool is_cycle  = false;
         pthread_mutex_lock(&board_mutex);
         for (int r = 0; r < BOARD_SIZE && !has_holes; r++)
             for (int c = 0; c < BOARD_SIZE && !has_holes; c++)
-                if (g_state.board[r][c].color == -1)
+                if (g_state.board[r][c].color == -1 && g_state.board[r][c].type != OBSTACLE)
                     has_holes = true;
+        is_cycle = g_state.pending_cycle;
+        g_state.pending_cycle = false;
         pthread_mutex_unlock(&board_mutex);
- 
+
         if (!has_holes)
             continue;
- 
-        /*
-         * path vacío y is_cycle=false: process_move detecta los huecos
-         * directamente del tablero (ya marcados por remove_selection).
-         * chain_len se recalcula desde total_removed en ese caso.
-         */
+
         std::vector<SelectedPoint> empty_path;
-        process_move(empty_path, false);
+        process_move(empty_path, is_cycle);
 
         pthread_mutex_lock(&render_mutex);
         if (g_state.current_screen == SCREEN_GAME_OVER) {

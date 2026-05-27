@@ -9,6 +9,7 @@
 #include "game_config.h"
 #include "logic.h"
 #include "scores.h"
+#include <cstring>
 
 #include <ncurses.h>
 #include <cstdio>
@@ -167,18 +168,18 @@ static void render_mode_select_screen(void)
     char fast_line[64];
 
     snprintf(slow_line, sizeof(slow_line),
-             "Slow Mode  (%d pts / %d movs)",
+             "Slow Mode      (%d pts / %d movs)",
              get_score_goal(SLOW), get_moves_limit(SLOW));
     snprintf(fast_line, sizeof(fast_line),
-             "Fast Mode  (%d pts / %d movs)",
+             "Fast Mode      (%d pts / %d movs)",
              get_score_goal(FAST), get_moves_limit(FAST));
 
-    const char* modes[] = { slow_line, fast_line };
+    const char* modes[] = { slow_line, fast_line, "Challenge Mode (10 niveles)" };
 
     draw_title("=== SELECT MODE ===", 2);
 
     int start_row = 6;
-    int start_col = (COLS - 36) / 2;
+    int start_col = (COLS - 40) / 2;
     if (start_col < 2)
         start_col = 2;
 
@@ -189,7 +190,7 @@ static void render_mode_select_screen(void)
     int check_row = start_row + MODE_ITEM_COUNT * 2 + 1;
     const char* mark = g_state.special_enabled ? "X" : " ";
 
-    if (g_state.mode_index == 2) {
+    if (g_state.mode_index == 3) {
         attron(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
         mvprintw(check_row, start_col, "> [%s] Special elements <", mark);
         attroff(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
@@ -199,7 +200,7 @@ static void render_mode_select_screen(void)
 
     int color_row = check_row + 1;
 
-    if (g_state.mode_index == 3) {
+    if (g_state.mode_index == 4) {
         attron(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
         mvprintw(color_row, start_col, "Colores: < %d >", g_state.num_colors);
         attroff(A_REVERSE | COLOR_PAIR(PAIR_TITLE));
@@ -209,6 +210,70 @@ static void render_mode_select_screen(void)
 
     mvprintw(color_row + 2, start_col, "Flechas = navegar | < > = ajustar colores | ESPACIO/ENTER = marcar");
     mvprintw(color_row + 4, start_col, "ESC o B = volver al menu");
+}
+
+static const char* goal_type_label(int goal_type, int level_idx)
+{
+    static char buf[64];
+    const LevelConfig& lv = LEVELS[level_idx];
+    switch (goal_type) {
+    case GOAL_SCORE:
+        snprintf(buf, sizeof(buf), "Meta: %d pts", lv.score_goal);
+        break;
+    case GOAL_COLOR_ELIM: {
+        const char* col_names[] = { "rojo","azul","verde","amarillo","magenta","cyan","blanco" };
+        const char* cn = (lv.color_target >= 0 && lv.color_target < 7)
+                         ? col_names[lv.color_target] : "?";
+        snprintf(buf, sizeof(buf), "Eliminar %d %s", lv.color_goal, cn);
+        break;
+    }
+    case GOAL_CYCLES:
+        snprintf(buf, sizeof(buf), "%d ciclos", lv.cycles_target);
+        break;
+    case GOAL_COMBO:
+        snprintf(buf, sizeof(buf), "%d pts + %d ciclos", lv.score_goal, lv.cycles_target);
+        break;
+    default:
+        snprintf(buf, sizeof(buf), "?");
+        break;
+    }
+    return buf;
+}
+
+static void render_challenge_select_screen(void)
+{
+    const int col = content_left();
+    int row = 1;
+
+    draw_title("=== CHALLENGE MODE ===", row);
+    row += 2;
+
+    row = draw_section_header(row, col, "Selecciona un nivel:");
+    row++;
+
+    for (int i = 0; i < NUM_LEVELS; i++) {
+        const LevelConfig& lv = LEVELS[i];
+        char line[80];
+        snprintf(line, sizeof(line),
+                 "Niv %2d  %-28s  %2d movs  %d colores%s",
+                 i + 1,
+                 goal_type_label(lv.goal_type, i),
+                 lv.moves_limit,
+                 lv.num_colors,
+                 lv.obstacle_count > 0 ? "  [#]" : "");
+        bool sel = (g_state.current_level == i + 1);
+        draw_menu_item(row, col, line, sel);
+        row++;
+    }
+
+    const char* footer = "Flechas = navegar | ENTER = iniciar | ESC/B = volver";
+    int flen = 0;
+    for (const char* p = footer; *p; p++) flen++;
+    int foot_row = (LINES > 2) ? LINES - 2 : row + 1;
+    if (foot_row <= row) foot_row = row + 1;
+    attron(A_DIM);
+    mvaddstr(foot_row, (COLS - flen) / 2, footer);
+    attroff(A_DIM);
 }
 
 static void render_scores_screen(void)
@@ -295,8 +360,17 @@ static void render_game_over_screen(void)
         row++;
     }
 
+    if (g_state.challenge_mode) {
+        row = draw_body_fmt(row, col, "  Nivel completado: %d / %d",
+                            g_state.current_level, NUM_LEVELS);
+        row++;
+    }
+
     row = draw_section_header(row, col, "OPTIONS");
-    row = draw_body_line(row, col, "  R = Restart game");
+    if (g_state.challenge_mode && g_state.game_status == STATUS_WON &&
+        g_state.current_level < NUM_LEVELS)
+        row = draw_body_line(row, col, "  N = Next Level");
+    row = draw_body_line(row, col, "  R = Restart");
     row = draw_body_line(row, col, "  M = Return to main menu");
     row = draw_body_line(row, col, "  Q = Quit");
 }
@@ -317,6 +391,10 @@ void render_screen(void)
 
     case SCREEN_MODE_SELECT:
         render_mode_select_screen();
+        break;
+
+    case SCREEN_CHALLENGE_SELECT:
+        render_challenge_select_screen();
         break;
 
     case SCREEN_PLAYING:

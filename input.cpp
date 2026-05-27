@@ -9,6 +9,7 @@
 #include "screens.h"
 #include "scores.h"
 #include "game_reset.h"
+#include "game_config.h"
 
 #include <ncurses.h>
 #include <vector>
@@ -66,7 +67,24 @@ static void remove_selection(void)
     bool cycle = detect_cycle(selection);
     int target_color = current_color;
 
+    /* Track color elimination progress for challenge mode */
+    if (g_state.challenge_mode && g_state.goal_type == GOAL_COLOR_ELIM &&
+        g_state.color_target >= 0)
+    {
+        if (cycle) {
+            for (int r = 0; r < BOARD_SIZE; r++)
+                for (int c = 0; c < BOARD_SIZE; c++)
+                    if (g_state.board[r][c].color == g_state.color_target)
+                        g_state.color_eliminated++;
+        } else {
+            for (const auto& p : selection)
+                if (g_state.board[p.row][p.col].color == g_state.color_target)
+                    g_state.color_eliminated++;
+        }
+    }
+
     if (cycle) {
+        g_state.pending_cycle = true;
         for (int r = 0; r < BOARD_SIZE; r++) {
             for (int c = 0; c < BOARD_SIZE; c++) {
                 if (g_state.board[r][c].color == target_color)
@@ -99,9 +117,20 @@ static GameMode mode_from_index(int index)
     return (index == 0) ? SLOW : FAST;
 }
 
-static void start_game_from_mode_select(void)
-{
+static void start_game_from_mode_select(void) {
+    g_state.challenge_mode = false;
     g_state.game_mode = mode_from_index(g_state.mode_index);
+    init_board();
+    input_reset_playing_state();
+    g_state.current_screen = SCREEN_PLAYING;
+}
+
+static void start_challenge_level(void) {
+    g_state.challenge_mode  = true;
+    g_state.game_mode       = SLOW;
+    g_state.cycles_formed   = 0;
+    g_state.color_eliminated = 0;
+    g_state.pending_cycle   = false;
     init_board();
     input_reset_playing_state();
     g_state.current_screen = SCREEN_PLAYING;
@@ -225,24 +254,27 @@ static bool handle_mode_select_input(int ch)
         return true;
 
     case KEY_LEFT:
-        if (g_state.mode_index == 3 && g_state.num_colors > MIN_COLORS)
+        if (g_state.mode_index == 4 && g_state.num_colors > MIN_COLORS)
             g_state.num_colors--;
         return true;
 
     case KEY_RIGHT:
-        if (g_state.mode_index == 3 && g_state.num_colors < NUM_COLORS)
+        if (g_state.mode_index == 4 && g_state.num_colors < NUM_COLORS)
             g_state.num_colors++;
         return true;
 
     case ' ':
-        if (g_state.mode_index == 2)
+        if (g_state.mode_index == 3)
             g_state.special_enabled = !g_state.special_enabled;
         return true;
 
     case '\n':
-        if (g_state.mode_index == 2)
+        if (g_state.mode_index == 3)
             g_state.special_enabled = !g_state.special_enabled;
-        else if (g_state.mode_index < 2)
+        else if (g_state.mode_index == 2) {
+            g_state.current_level = 1;
+            g_state.current_screen = SCREEN_CHALLENGE_SELECT;
+        } else if (g_state.mode_index < 2)
             start_game_from_mode_select();
         return true;
 
@@ -254,6 +286,32 @@ static bool handle_mode_select_input(int ch)
 
     default:
         return true;
+    }
+}
+
+static bool handle_challenge_select_input(int ch) {
+    switch (ch) {
+    case KEY_UP:
+        if (g_state.current_level > 1)
+            g_state.current_level--;
+        return true;
+        break;
+    case KEY_DOWN:
+        if (g_state.current_level < NUM_LEVELS)
+            g_state.current_level++;
+        return true;
+      break;
+    case '\n':
+        start_challenge_level();
+        return true;
+            break;
+    case 'B':
+        g_state.current_screen = SCREEN_MODE_SELECT;
+        return true;
+        break;
+    default:
+        return true;
+        break;
     }
 }
 
@@ -293,6 +351,27 @@ static void ensure_score_saved(void)
 static bool handle_game_over_input(int ch)
 {
     switch (ch) {
+
+    case 'n':
+    case 'N':
+        if (g_state.challenge_mode && g_state.game_status == STATUS_WON &&
+            g_state.current_level < NUM_LEVELS)
+        {
+            ensure_score_saved();
+            g_state.current_level++;
+            g_state.cycles_formed    = 0;
+            g_state.color_eliminated = 0;
+            g_state.pending_cycle    = false;
+            g_state.player_name_len      = 0;
+            g_state.player_name_input[0] = '\0';
+            g_state.score_saved          = false;
+            scores_reset_match_flag();
+            input_reset_playing_state();
+            init_board();
+            g_state.game_status    = STATUS_RUNNING;
+            g_state.current_screen = SCREEN_PLAYING;
+        }
+        return true;
 
     case 'r':
     case 'R':
@@ -479,6 +558,10 @@ void* input_thread(void* arg)
 
         case SCREEN_MODE_SELECT:
             keep_running = handle_mode_select_input(ch);
+            break;
+
+        case SCREEN_CHALLENGE_SELECT:
+            keep_running = handle_challenge_select_input(ch);
             break;
 
         case SCREEN_PLAYING:

@@ -92,14 +92,19 @@ typedef enum {
 /**
  * @brief Cantidad de opciones en la pantalla de selección de modo.
  */
-#define MODE_ITEM_COUNT 2
+#define MODE_ITEM_COUNT 3
 
 /**
  * @brief Total de ítems navegables en la pantalla de selección de modo.
  *
- * 0,1 = modos  |  2 = checkbox specials  |  3 = selector num_colors
+ * 0,1,2 = modos  |  3 = checkbox specials  |  4 = selector num_colors
  */
-#define MODE_SCREEN_TOTAL 4
+#define MODE_SCREEN_TOTAL 5
+
+/**
+ * @brief Número de niveles del modo Challenge.
+ */
+#define NUM_LEVELS 10
 
 /**
  * @brief Longitud máxima del nombre del jugador (incluye '\0').
@@ -113,6 +118,7 @@ typedef enum {
     SCREEN_MENU,
     SCREEN_INSTRUCTIONS,
     SCREEN_MODE_SELECT,
+    SCREEN_CHALLENGE_SELECT,
     SCREEN_PLAYING,
     SCREEN_SCORES,
     SCREEN_GAME_OVER,
@@ -122,7 +128,7 @@ typedef enum {
 /**
  * @brief Tipo de celda especial del tablero.
  */
-typedef enum { NORMAL, BOMB, CROSS, MULTIPLIER } CellType;
+typedef enum { NORMAL, BOMB, CROSS, MULTIPLIER, OBSTACLE } CellType;
 
 /**
  * @brief Celda del tablero con color y tipo.
@@ -269,10 +275,57 @@ typedef struct {
 
     /**
      * @brief Cantidad de colores activos en la partida (MIN_COLORS..NUM_COLORS).
-     *
-     * Asignado en init_board() según el modo: SLOW=4, FAST=6.
      */
     int num_colors;
+
+    /**
+     * @brief true si la partida actual es Challenge Mode.
+     */
+    bool challenge_mode;
+
+    /**
+     * @brief Nivel actual del modo Challenge (1..NUM_LEVELS).
+     */
+    int current_level;
+
+    /**
+     * @brief Tipo de objetivo del nivel actual.
+     *
+     * 0=puntaje | 1=eliminar color | 2=ciclos | 3=combo (puntaje+ciclos)
+     */
+    int goal_type;
+
+    /**
+     * @brief Ciclos completados en el nivel actual de Challenge.
+     */
+    int cycles_formed;
+
+    /**
+     * @brief Número de ciclos necesarios para ganar (GOAL_CYCLES / GOAL_COMBO).
+     */
+    int cycles_target;
+
+    /**
+     * @brief Celdas del color objetivo a eliminar (GOAL_COLOR_ELIM).
+     */
+    int color_goal;
+
+    /**
+     * @brief Celdas del color objetivo eliminadas hasta ahora.
+     */
+    int color_eliminated;
+
+    /**
+     * @brief Índice de color que debe eliminarse (-1 si no aplica).
+     */
+    int color_target;
+
+    /**
+     * @brief Señal entre input_thread y game_loop_thread: el último move fue un ciclo.
+     *
+     * @note Escrita por input_thread bajo board_mutex; leída y resetada por game_loop_thread.
+     */
+    bool pending_cycle;
 
 } GameState;
 
