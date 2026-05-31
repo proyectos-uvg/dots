@@ -6,6 +6,7 @@
 #include <ncurses.h>
 #include <clocale>
 #include <cstdio>
+#include <cstring>
 #include <pthread.h>
 #include "input.h"
 #include "game_state.h"
@@ -14,6 +15,8 @@
 #include "logic.h"
 #include "screens.h"
 #include "scores.h"
+#include <unistd.h>   
+#include <cstdlib>    
 
 /**
  * @brief Estado global compartido de la partida.
@@ -48,6 +51,38 @@ sem_t input_ready;
 pthread_mutex_t render_mutex;
 
 /**
+ * @brief Copia los archivos de sonido desde la carpeta sounds/
+ *        del proyecto a la carpeta Downloads del usuario de Windows.
+ *
+ * Permite que Media.SoundPlayer de PowerShell pueda acceder
+ * a los archivos, ya que no puede leer rutas WSL directamente.
+ */
+void setup_sounds(void)
+{
+    char win_user[64];
+    char src_path[512];
+    char cmd[1024];
+
+    // Obtiene el usuario de Windows
+    FILE* fp = popen("powershell.exe -c '$env:USERNAME'", "r");
+    if (!fp) return;
+    fgets(win_user, sizeof(win_user), fp);
+    pclose(fp);
+    win_user[strcspn(win_user, "\n\r")] = '\0';
+
+    // Obtiene la ruta absoluta de la carpeta sounds/ del proyecto
+    char cwd[256];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) return;
+    snprintf(src_path, sizeof(src_path), "%s/sounds/connect.wav", cwd);
+
+    // Copia el archivo a Downloads de Windows
+    snprintf(cmd, sizeof(cmd),
+        "cp '%s' /mnt/c/Users/%s/Downloads/connect.wav",
+        src_path, win_user);
+    system(cmd);
+}
+
+/**
  * @brief Función principal de la aplicación.
  *
  * Inicializa ncurses, configura colores y primitivas
@@ -62,6 +97,8 @@ pthread_mutex_t render_mutex;
  */
 int main(void)
 {
+    /* Copiar sonidos a Windows antes de iniciar */
+    setup_sounds();
 
     /* Habilitar soporte UTF-8 */
     setlocale(LC_ALL, "");
@@ -89,10 +126,10 @@ int main(void)
 
     load_scores();
 
-    g_state.current_screen = SCREEN_MENU;
-    g_state.menu_index     = 0;
-    g_state.mode_index     = 0;
-    g_state.game_mode      = SLOW;
+    g_state.current_screen      = SCREEN_MENU;
+    g_state.menu_index          = 0;
+    g_state.mode_index          = 0;
+    g_state.game_mode           = SLOW;
     g_state.high_score          = 0;
     g_state.last_score          = 0;
     g_state.last_player_name[0] = '\0';

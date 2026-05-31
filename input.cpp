@@ -23,7 +23,7 @@ static std::vector<SelectedPoint> selection;
 static int current_color = -1;
 
 /* ------------------------------------------------------------------ */
-/* Utilidades de gameplay (sin cambios de lógica)                      */
+/* Utilidades de gameplay                                              */
 /* ------------------------------------------------------------------ */
 
 bool is_adjacent(int r1, int c1, int r2, int c2)
@@ -395,7 +395,7 @@ static bool handle_game_over_input(int ch)
         g_state.current_screen = SCREEN_EXIT;
         return false;
 
-  case '\n':
+    case '\n':
         if (!g_state.score_saved)
             commit_player_name();
         return true;
@@ -506,11 +506,24 @@ static bool handle_playing_input(int ch)
     }
 
     case '\n':
-        if (selection.size() >= 2) {
-            remove_selection();
-            needs_broadcast = true;
+    if (selection.size() >= 2) {
+        remove_selection();
+        char win_user[64];
+        char cmd[512];
+        FILE* fp = popen("powershell.exe -c '$env:USERNAME'", "r");
+        if (fp) {
+            fgets(win_user, sizeof(win_user), fp);
+            pclose(fp);
+            win_user[strcspn(win_user, "\n\r")] = '\0';
+            snprintf(cmd, sizeof(cmd),
+                "powershell.exe -c \"(New-Object Media.SoundPlayer "
+                "'C:\\\\Users\\\\%s\\\\Downloads\\\\connect.wav').PlaySync()\"",
+                win_user);
+            system(cmd);
         }
-        break;
+        needs_broadcast = true;
+    }
+    break;
 
     case 'q':
         g_state.game_status = STATUS_LOST;
