@@ -528,7 +528,7 @@ static bool handle_playing_input(int ch)
     }
 
     if (needs_broadcast)
-        pthread_cond_broadcast(&board_updated);
+        sem_post(&input_ready);   /* señaliza a game_loop_thread: jugada lista */
 
     return true;
 }

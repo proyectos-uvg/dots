@@ -283,35 +283,29 @@ void process_move(const std::vector<SelectedPoint>& path,
 /* ------------------------------------------------------------------ */
  
 /**
- * Se engancha a board_updated, la misma variable de condición que
- * input_thread ya señaliza con pthread_cond_broadcast tras cada
- * jugada confirmada (línea existente en input.cpp, case '\n').
+ * Espera en el semáforo input_ready hasta que input_thread señalice
+ * que el jugador confirmó una jugada (sem_post).  Cada post representa
+ * exactamente un movimiento pendiente de procesar; no hay wakeups
+ * espurios ni mutex auxiliar innecesario.
  *
- * Para saber si hay una jugada real que procesar (y no un broadcast
- * espurio), verifica si existen celdas -1 en el tablero.
- *
- * Limitación conocida: necesita que input_thread exponga la cadena
- * y el color de la última jugada. Como no podemos modificar input.cpp,
- * reconstruimos lo mínimo: contamos los huecos y usamos is_cycle=false
- * como default conservador (remove_selection ya borró todo lo correcto).
- * Si en el futuro se expone una estructura compartida desde input.cpp,
- * process_move() puede recibir los datos exactos.
+ * Flujo de señalización:
+ *   input_thread  →  sem_post(&input_ready)   (jugada confirmada)
+ *   game_loop_thread  →  sem_wait(&input_ready)   (despierta, procesa)
+ *   main()        →  sem_post(&input_ready)   (al salir, para desbloquear)
  */
-void* game_loop_thread(void* arg)
-{
+void* game_loop_thread(void* arg) {
     (void)arg;
- 
-    /*
-     * Mutex auxiliar requerido por pthread_cond_wait.
-     * No protege datos propios; solo satisface la API de pthreads.
-     */
-    pthread_mutex_t wait_mutex = PTHREAD_MUTEX_INITIALIZER;
- 
-    while (g_state.current_screen != SCREEN_EXIT)
-    {
-        pthread_mutex_lock(&wait_mutex);
-        pthread_cond_wait(&board_updated, &wait_mutex);
-        pthread_mutex_unlock(&wait_mutex);
+
+    while (true) {
+        /*
+         * sem_wait decrementa el contador del semáforo.
+         * Si es 0, bloquea el hilo hasta que input_thread (o main)
+         * haga sem_post.  No requiere mutex auxiliar.
+         */
+        sem_wait(&input_ready);
+
+        if (g_state.current_screen == SCREEN_EXIT)
+            break;
 
         if (g_state.current_screen != SCREEN_PLAYING ||
             g_state.game_status != STATUS_RUNNING)
@@ -350,6 +344,5 @@ void* game_loop_thread(void* arg)
         pthread_mutex_unlock(&render_mutex);
     }
  
-    pthread_mutex_destroy(&wait_mutex);
     return NULL;
 }

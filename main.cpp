@@ -126,9 +126,9 @@ int main(void)
 
     pthread_join(input_tid, NULL);
 
-    /* Despertar game_loop_thread para que detecte el fin de partida
-     * y pueda salir de pthread_cond_wait. */
-    pthread_cond_broadcast(&board_updated);
+    /* Despertar game_loop_thread para que detecte SCREEN_EXIT
+     * y pueda salir de sem_wait. */
+    sem_post(&input_ready);
     pthread_join(logic_tid, NULL);
 
     cleanup();
